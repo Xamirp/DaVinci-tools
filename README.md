@@ -30,14 +30,25 @@
 
 ---
 
-## 🚀 Быстрый старт
+## 💻 Совместимость и требования
 
-### 1. Требования
-- **Python 3.10 – 3.12** (рекомендуется Python 3.12)
-- **DaVinci Resolve Studio** (для расстановки маркеров через API)
-- **FFmpeg** (встроен в папку `bin/` или доступен в системном `PATH`)
+- **DaVinci Resolve Studio**: протестировано на **DaVinci Resolve Studio 21.0.2.4** (совместимо с версиями 18, 19, 20, 21+).
+- **Python**: 3.10 – 3.12 (рекомендуется **Python 3.12**).
+- **FFmpeg**: встроен в папку `bin/` или доступен в системном `PATH`.
+- **Git**: для клонирования репозитория. Если Git не установлен, скачайте официальный инсталлятор: [Git for Windows](https://git-scm.com/download/win).
 
-### 2. Установка зависимостей
+---
+
+## 🚀 Установка и быстрый старт
+
+### 1. Клонирование репозитория
+Откройте терминал (PowerShell / Командная строка) и выполните:
+```bash
+git clone https://github.com/Xamirp/DaVinci-tools.git
+cd DaVinci-tools
+```
+
+### 2. Инициализация окружения
 Запустите скрипт автоматической настройки:
 ```bat
 setup_env.bat
@@ -89,12 +100,13 @@ run_cli.bat
 ```
 BitMaker/
 ├── bin/                   # Локализованные исполняемые файлы FFmpeg
+│   ├── .gitkeep
 │   ├── ffmpeg.exe
 │   └── ffprobe.exe
 ├── gui/                   # Модули интерфейса (tkinter / ttk)
 │   ├── audio_player.py    # Потоковый плеер (sounddevice)
 │   ├── command_manager.py # Паттерн Command & Undo/Redo
-│   ├── dialogs.py         # Диалоги настроек и логов
+│   ├── dialogs.py         # Диалоги настроек, логов и окно прогресса
 │   ├── panels.py          # Модульные панели интерфейса
 │   ├── theme.py           # Темная тема DaVinci Resolve Studio
 │   └── timeline_panel.py  # Интерактивный Waveform Canvas
