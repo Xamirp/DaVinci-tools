@@ -446,9 +446,15 @@ class ExportFcpXmlDialog(tk.Toplevel):
 
         # 4. Сводная информация
         audio_name = os.path.basename(self.audio_path) if self.audio_path else "—"
-        info_text = f"🎵 Аудиофайл: {audio_name}\n⏱️ FPS: {self.fps:.3f} | Долей/битов: {self.beats_count} | Таймкод: 00:00:00:00"
+        info_text = (
+            f"🎵 Аудиофайл: {audio_name}\n"
+            f"⏱️ FPS: {self.fps:.3f} | Долей/битов: {self.beats_count} | Таймкод: 00:00:00:00\n"
+            f"💡 Совместимо с Adobe Premiere Pro и Final Cut Pro 7.\n"
+            f"   (Для DaVinci Resolve используйте кнопку «📍 Разметить в DaVinci»)."
+        )
         lbl_info = ttk.Label(frame, text=info_text, style="Muted.TLabel", justify="left")
         lbl_info.pack(anchor="w", pady=(4, 10))
+
 
         # 5. Кнопки внизу
         sep = ttk.Separator(frame, orient="horizontal")
