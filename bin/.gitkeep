@@ -1,0 +1,2 @@
+# Place ffmpeg.exe and ffprobe.exe here for portable standalone operation.
+# If omitted, BitMaker will automatically fall back to the system PATH.

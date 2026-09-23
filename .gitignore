@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Output and runtime data
+output/
+audio_baked/
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.json_backup
+music-beats.json
+
+# Local configuration and credentials
+settings.json
+*.log
+git-acc.txt
+*acc*.txt
+*.secret
+
+# Large binary executables (ffmpeg, ffprobe)
+bin/*.exe
+bin/ffmpeg
+bin/ffprobe
+bin/ffplay
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
