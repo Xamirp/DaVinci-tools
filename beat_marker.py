@@ -663,11 +663,11 @@ def inspect_audio_track(proj, timeline_name="intro", track_index=2):
             break
 
     if not tl:
-        return {"found": False, "message": f"Таймлайн '{timeline_name}' не найден"}
+        return {"found": False, "message": f"Timeline '{timeline_name}' not found"}
 
     track_state = get_track_state(tl, track_index)
     if track_state["items_count"] == 0:
-        return {"found": False, "message": f"Трек A{track_index} пуст"}
+        return {"found": False, "message": f"Track A{track_index} is empty"}
 
     clips = track_state["clips"]
     is_complex = track_state["is_complex"]
@@ -679,9 +679,9 @@ def inspect_audio_track(proj, timeline_name="intro", track_index=2):
         fp = clips[0]["file_path"]
         status_label = fn
     else:
-        fn = f"Составной трек ({len(clips)} сегм., монтаж)"
+        fn = f"Multi-clip Track ({len(clips)} segments, montage)"
         fp = clips[0]["file_path"] if clips else ""
-        status_label = f"Составной трек: {len(clips)} сегментов (монтаж/подрезка)"
+        status_label = f"Multi-clip Track: {len(clips)} segments (edited/montage)"
 
     items = tl.GetItemListInTrack("audio", track_index) or []
     item = items[0] if items else None

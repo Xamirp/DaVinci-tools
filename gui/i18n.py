@@ -42,6 +42,8 @@ TRANSLATIONS = {
         "project_prefix": "Project:",
         "no_project": "No active project",
         "audio_not_found": "Audio file not found",
+        "audio_complex_track": "Multi-clip Track: {count} segments (edited/montage)",
+        "audio_track_empty": "Track A{track} is empty",
         "audio_none": "—",
 
         # Settings Panel
@@ -174,6 +176,8 @@ TRANSLATIONS = {
         "project_prefix": "Проєкт:",
         "no_project": "Немає підключення",
         "audio_not_found": "Аудіофайл не знайдено",
+        "audio_complex_track": "Складений трек: {count} сегментів (монтаж/підрізка)",
+        "audio_track_empty": "Трек A{track} порожній",
         "audio_none": "—",
 
         # Settings Panel
@@ -306,6 +310,8 @@ TRANSLATIONS = {
         "project_prefix": "Проект:",
         "no_project": "нет подключения",
         "audio_not_found": "Файл не найден",
+        "audio_complex_track": "Составной трек: {count} сегментов (монтаж/подрезка)",
+        "audio_track_empty": "Трек A{track} пуст",
         "audio_none": "—",
 
         # Settings Panel

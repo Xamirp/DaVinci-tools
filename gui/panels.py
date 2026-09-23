@@ -147,7 +147,8 @@ class HeaderPanel(PanelBase):
             mins = int(dur // 60)
             secs = int(dur % 60)
             if audio_info.get("is_complex"):
-                label_txt = audio_info.get("status_label", fn)
+                clips_cnt = audio_info.get("clips_count", 1)
+                label_txt = tr("audio_complex_track", count=clips_cnt)
                 self.lbl_audio_info.config(text=f"🎛️ {label_txt} ({mins}:{secs:02d})", foreground="#ffb74d")
             else:
                 self.lbl_audio_info.config(text=f"🎵 {fn} ({mins}:{secs:02d})", foreground="#4fc3f7")
