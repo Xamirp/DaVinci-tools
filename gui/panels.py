@@ -167,10 +167,14 @@ class SettingsPanel(PanelBase):
 
         ttk.Label(r2, text="Таргет:", width=6, style="Panel.TLabel").pack(side="left")
         self.var_target = tk.StringVar(value="clip")
+        self._user_preferred_target = "clip"
+        self._is_complex_locked = False
         self.cb_target = ttk.Combobox(r2, textvariable=self.var_target, values=MARKER_TARGETS, state="readonly", width=8)
         self.cb_target.pack(side="left")
+        self.cb_target.bind("<<ComboboxSelected>>", self._on_target_selected)
         self.lbl_target_hint = ttk.Label(r2, text="", font=("Segoe UI", 8), style="Muted.TLabel")
         self.lbl_target_hint.pack(side="left", padx=(6, 0))
+
 
         # Строка 2.5: Динамический калькулятор темпа монтажа (Live Pace Indicator)
         r_pace = ttk.Frame(self, style="Panel.TFrame")
@@ -258,15 +262,25 @@ class SettingsPanel(PanelBase):
             text=f"⏱️ Длина клипа: ~{clip_dur:.2f}с ({frames} кадров)  |  📊 Ожидаемо склеек: ~{expected_clips} клипов (при {cur_bpm:.1f} BPM)"
         )
 
+    def _on_target_selected(self, event=None):
+        if not getattr(self, "_is_complex_locked", False):
+            self._user_preferred_target = self.var_target.get()
+        self._trigger_change()
+
     def set_target_mode(self, is_complex=False):
         """Блокировка режима 'clip' для сложного монтажа во избежание сбоев DaVinci."""
+        self._is_complex_locked = bool(is_complex)
         if is_complex:
             self.var_target.set("timeline")
             self.cb_target.config(state="disabled")
             self.lbl_target_hint.config(text="🔒 Только Timeline (монтаж аудио)", foreground="#ffb74d")
         else:
-            self.cb_target.config(state="readonly")
+            self.cb_target.config(state="readonly", values=MARKER_TARGETS)
             self.lbl_target_hint.config(text="", foreground=TEXT_MUTED)
+            pref = getattr(self, "_user_preferred_target", "clip")
+            if pref in MARKER_TARGETS:
+                self.var_target.set(pref)
+
 
 
 class ResultsPanel(PanelBase):

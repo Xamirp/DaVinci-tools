@@ -361,15 +361,7 @@ def place_markers(tl, strong_beats, color="Red", timeline_item=None, timeline_it
         target_items = timeline_item if isinstance(timeline_item, list) else [timeline_item]
 
     # 1. Очистка старых маркеров указанного цвета
-    if target_items:
-        for item in target_items:
-            for f, m in list((item.GetMarkers() or {}).items()):
-                if m.get("color") == color:
-                    item.DeleteMarkerAtFrame(f)
-    else:
-        for f, m in list((tl.GetMarkers() or {}).items()):
-            if m.get("color") == color:
-                tl.DeleteMarkerAtFrame(f)
+    delete_markers(tl, color=color, timeline_items=target_items)
 
     placed = 0
 
@@ -405,25 +397,50 @@ def place_markers(tl, strong_beats, color="Red", timeline_item=None, timeline_it
 
 
 def delete_markers(tl, color="Red", timeline_item=None, timeline_items=None):
-    """Удалить маркеры заданного цвета с клипов (одного/многих) или таймлайна."""
+    """Удалить маркеры заданного цвета (или 'All') с клипов (одного/многих) или таймлайна."""
     target_items = None
     if timeline_items is not None:
         target_items = timeline_items if isinstance(timeline_items, list) else [timeline_items]
     elif timeline_item is not None:
         target_items = timeline_item if isinstance(timeline_item, list) else [timeline_item]
 
+    target_color = "All" if str(color).strip().lower() in ("all", "все", "все цвета") else str(color).strip().title()
+
     deleted = 0
     if target_items:
         for item in target_items:
+            before_count = len(item.GetMarkers() or {})
+            if before_count == 0:
+                continue
+            if hasattr(item, "DeleteMarkersByColor"):
+                try:
+                    if item.DeleteMarkersByColor(target_color):
+                        after_count = len(item.GetMarkers() or {})
+                        deleted += max(0, before_count - after_count)
+                        continue
+                except Exception:
+                    pass
             for f, m in list((item.GetMarkers() or {}).items()):
-                if m.get("color") == color:
+                m_color = m.get("color", "")
+                if target_color == "All" or m_color.lower() == target_color.lower():
                     if item.DeleteMarkerAtFrame(f):
                         deleted += 1
     elif tl:
-        for f, m in list((tl.GetMarkers() or {}).items()):
-            if m.get("color") == color:
-                if tl.DeleteMarkerAtFrame(f):
-                    deleted += 1
+        before_count = len(tl.GetMarkers() or {})
+        if before_count > 0:
+            if hasattr(tl, "DeleteMarkersByColor"):
+                try:
+                    if tl.DeleteMarkersByColor(target_color):
+                        after_count = len(tl.GetMarkers() or {})
+                        deleted += max(0, before_count - after_count)
+                        return deleted
+                except Exception:
+                    pass
+            for f, m in list((tl.GetMarkers() or {}).items()):
+                m_color = m.get("color", "")
+                if target_color == "All" or m_color.lower() == target_color.lower():
+                    if tl.DeleteMarkerAtFrame(f):
+                        deleted += 1
 
     return deleted
 
@@ -453,10 +470,8 @@ def get_track_state(tl, track_index=2):
         if end <= start and dur > 0:
             end = start + dur
 
-        if idx == 0 and (start > 0 or left_off > 0):
-            is_complex = True
-
         clips.append({
+
             "index": idx,
             "name": item.GetName() or (os.path.basename(fp) if fp else f"Clip_{idx}"),
             "file_path": fp,
@@ -542,8 +557,9 @@ def bake_timeline_audio(tl, track_index=2, session_dir=None, log_fn=print):
     is_complex = track_state["is_complex"]
     tl_fps = track_state["timeline_fps"]
     clips = track_state["clips"]
+    needs_assembly = len(clips) > 1 or (len(clips) == 1 and ((clips[0].get("start_frame") or 0) > 0 or (clips[0].get("left_offset") or 0) > 0))
 
-    if not is_complex and len(clips) == 1:
+    if not needs_assembly and len(clips) == 1:
         log_fn(f"[Запекание] Простой режим: извлечение аудио {clips[0]['name']}...")
         src_path = clips[0]["file_path"]
         cmd = [
@@ -553,8 +569,9 @@ def bake_timeline_audio(tl, track_index=2, session_dir=None, log_fn=print):
         ]
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
     else:
-        log_fn(f"[Запекание] Сложный режим (монтаж/подрезка: {len(clips)} сегментов) -> Сборка сквозного аудио через FFmpeg...")
+        log_fn(f"[Запекание] Сборка трека ({len(clips)} сегм., монтаж/подрезка) -> Формирование сквозного аудио через FFmpeg...")
         temp_slices = []
+
         concat_list = audio_dir / f"_concat_list_A{track_index}.txt"
         try:
             prev_end = 0

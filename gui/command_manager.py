@@ -64,9 +64,9 @@ class PlaceMarkersCommand(Command):
 
 
 class ClearMarkersCommand(Command):
-    """Команда очистки маркеров цвета."""
-    def __init__(self, proj, timeline_name, track_index, color="Red", target="clip", log_fn=print):
-        super().__init__(f"Очистка маркеров ({color})")
+    """Команда очистки маркеров."""
+    def __init__(self, proj, timeline_name, track_index, color="All", target="clip", log_fn=print):
+        super().__init__(f"Очистка маркеров ({target})")
         self.proj = proj
         self.timeline_name = timeline_name
         self.track_index = track_index
@@ -82,8 +82,24 @@ class ClearMarkersCommand(Command):
             return 0
         items = tl.GetItemListInTrack("audio", self.track_index) or []
         clip_items = items if (items and self.target == "clip") else None
+        
         self.deleted_count = bm.delete_markers(tl, color=self.color, timeline_items=clip_items)
-        self.log_fn(f"Очищено маркеров цвета '{self.color}': {self.deleted_count}")
+        
+        # Информативный лог
+        target_desc = f"клипах трека A{self.track_index}" if self.target == "clip" else "шкале таймлайна"
+        color_desc = "все цвета" if self.color.lower() == "all" else f"цвет '{self.color}'"
+        self.log_fn(f"[Очистка] Удалено {self.deleted_count} маркеров на {target_desc} ({color_desc}).")
+        
+        # Проверяем, остались ли другие маркеры
+        remaining_tl = tl.GetMarkers() or {}
+        if remaining_tl and self.target == "clip":
+            rem_colors = {}
+            for m in remaining_tl.values():
+                c = m.get("color", "Unknown")
+                rem_colors[c] = rem_colors.get(c, 0) + 1
+            rem_str = ", ".join(f"{c}: {cnt}" for c, cnt in rem_colors.items())
+            self.log_fn(f"[Инфо] На шкале таймлайна находится маркеров: {len(remaining_tl)} ({rem_str})")
+            
         return self.deleted_count
 
     def undo(self):

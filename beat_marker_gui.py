@@ -211,7 +211,9 @@ class BeatMarkerApp(tk.Tk):
         self.settings_panel.var_track_index.set(s.get("track_index", 2))
         self.settings_panel.set_frequency_value(s.get("frequency", 0))
         self.settings_panel.var_color.set(s.get("marker_color", "Red"))
-        self.settings_panel.var_target.set(s.get("marker_target", "clip"))
+        t_val = s.get("marker_target", "clip")
+        self.settings_panel._user_preferred_target = t_val
+        self.settings_panel.var_target.set(t_val)
         self.settings_panel.var_adaptive.set(s.get("adaptive", False))
         self.settings_panel._update_adaptive_view()
 
@@ -274,9 +276,9 @@ class BeatMarkerApp(tk.Tk):
                 )
                 is_complex = audio_info.get("is_complex", False)
                 self.settings_panel.set_target_mode(is_complex=is_complex)
-                if is_complex and self.settings.get("marker_target") != "timeline":
-                    self.settings["marker_target"] = "timeline"
-                    save_settings(self.settings)
+            else:
+                self.settings_panel.set_target_mode(is_complex=False)
+
 
                 # Загрузка существующего слепка аудио и маркеров в таймлайн
                 baked_wav = target_out.parent / "audio" / f"timeline_A{track_idx}_baked.wav"
@@ -322,11 +324,11 @@ class BeatMarkerApp(tk.Tk):
                     )
                     is_complex = audio_info.get("is_complex", False)
                     self.settings_panel.set_target_mode(is_complex=is_complex)
-                    if is_complex and self.settings.get("marker_target") != "timeline":
-                        self.settings["marker_target"] = "timeline"
-                        save_settings(self.settings)
+                else:
+                    self.settings_panel.set_target_mode(is_complex=False)
         except Exception:
             pass
+
 
     def _open_adaptive_dialog(self):
         dlg = AdaptiveSettingsDialog(self, self.settings)
@@ -718,13 +720,13 @@ class BeatMarkerApp(tk.Tk):
 
         tl_name = self.settings_panel.var_timeline.get()
         track_idx = self.settings_panel.var_track_index.get()
-        color = self.settings_panel.var_color.get()
         target = self.settings_panel.var_target.get()
+        target_name = "Шкала таймлайна" if target == "timeline" else f"Клипы трека A{track_idx}"
 
         self.progress_dialog.show_progress(
             title="Очистка маркеров",
-            status=f"Удаление маркеров цвета {color}...",
-            detail=f"Таймлайн: '{tl_name}', трек A{track_idx}"
+            status="Удаление всех маркеров...",
+            detail=f"Таймлайн: '{tl_name}', {target_name}"
         )
 
         def worker():
@@ -733,7 +735,7 @@ class BeatMarkerApp(tk.Tk):
                     proj=proj,
                     timeline_name=tl_name,
                     track_index=track_idx,
-                    color=color,
+                    color="All",
                     target=target,
                     log_fn=self.log_dialog.append_log
                 )
@@ -743,10 +745,10 @@ class BeatMarkerApp(tk.Tk):
                     if self.last_analysis_result:
                         self.last_analysis_result["markers_placed"] = 0
                         self.results_panel.update_results(self.last_analysis_result)
-                    self.actions_panel.set_status(f"Очищено {deleted} маркеров цвета {color}", "#ffb74d")
+                    self.actions_panel.set_status(f"Очищено {deleted} маркеров на {target_name.lower()}", "#ffb74d")
                     self.progress_dialog.finish(
                         status=f"Очищено {deleted} маркеров",
-                        detail=f"Цвет: {color}",
+                        detail=f"Таргет: {target_name}",
                         auto_close_ms=600
                     )
 
