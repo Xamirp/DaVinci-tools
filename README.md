@@ -33,9 +33,10 @@
 ## 💻 Совместимость и требования
 
 - **DaVinci Resolve Studio**: протестировано на **DaVinci Resolve Studio 21.0.2.4** (совместимо с версиями 18, 19, 20, 21+).
-- **Python**: 3.10 – 3.12 (рекомендуется **Python 3.12**).
+- **Python**: 3.10 – 3.12 (рекомендуется **[Python 3.12 для Windows](https://www.python.org/downloads/)**).
+  > ⚠️ **Важно при установке Python**: обязательно отметьте галочку **"Add python.exe to PATH"** на первом шаге инсталлятора.
+- **Git**: для клонирования репозитория. Если Git не установлен, скачайте: **[Git for Windows](https://git-scm.com/download/win)**.
 - **FFmpeg**: встроен в папку `bin/` или доступен в системном `PATH`.
-- **Git**: для клонирования репозитория. Если Git не установлен, скачайте официальный инсталлятор: [Git for Windows](https://git-scm.com/download/win).
 
 ---
 
