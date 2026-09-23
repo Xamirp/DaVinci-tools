@@ -1,6 +1,11 @@
 # 🎵 BitMaker
 
+[![Built with Google AI Studio](https://img.shields.io/badge/Built%20with-Google%20AI%20Studio-4285F4?style=flat-square&logo=google&logoColor=white)](https://aistudio.google.com/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![DaVinci Resolve](https://img.shields.io/badge/DaVinci%20Resolve-Studio%2018%2F19%2F21-black)](https://www.blackmagicdesign.com/products/davinciresolve)
+
 **BitMaker** — мощная и легкая утилита для автоматического анализа темпа музыки, детекции битов и расстановки маркеров на таймлайне или клипах в **DaVinci Resolve Studio**.
+
 
 Включает интерактивный графический интерфейс с визуализацией формы звуковой волны (Waveform), встроенным аудиоплеером, ручным редактированием маркеров и историей действий (Undo/Redo).
 
@@ -155,6 +160,13 @@ BitMaker/
 
 ---
 
+## 🤝 О проекте и разработка
+
+Проект спроектирован и разработан с использованием **[Google AI Studio](https://aistudio.google.com/)** & **Google Gemini**.
+
+---
+
 ## 📄 Лицензия
 
 Проект распространяется под лицензией [Apache License 2.0](LICENSE).
+
