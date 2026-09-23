@@ -36,11 +36,13 @@ if not getattr(sys, "frozen", False):
 
 import beat_marker as bm
 import fcp_xml_exporter as fcp_exporter
+import edl_exporter as edl_exporter
 from gui.theme import apply_theme, BG_DARK, TEXT_MAIN
 from gui.command_manager import CommandManager, PlaceMarkersCommand, ClearMarkersCommand
-from gui.dialogs import LogDialog, AdaptiveSettingsDialog, ProgressDialog, ExportFcpXmlDialog
+from gui.dialogs import LogDialog, AdaptiveSettingsDialog, ProgressDialog, ExportFcpXmlDialog, ExportEdlDialog
 from gui.panels import HeaderPanel, SettingsPanel, ResultsPanel, ActionsPanel
 from gui.timeline_panel import TimelineWaveformPanel
+
 
 
 SETTINGS_FILE = SCRIPT_DIR / "settings.json"
@@ -189,6 +191,7 @@ class BeatMarkerApp(tk.Tk):
             on_analyze=self._start_analysis,
             on_save_json=self._save_beats_to_json,
             on_export_xml=self._export_fcp_xml,
+            on_export_edl=self._export_edl,
             on_place_markers=self._start_place_markers,
             on_clear_markers=self._start_clear_markers,
             on_save_settings=self._save_settings_clicked,
@@ -196,6 +199,7 @@ class BeatMarkerApp(tk.Tk):
             on_view_log=self._open_log_dialog
         )
         self.actions_panel.pack(fill="x", pady=(0, 2))
+
 
 
         # Загрузка значений настроек в поля панели
@@ -403,6 +407,7 @@ class BeatMarkerApp(tk.Tk):
             self.results_panel.update_results(res)
             self.actions_panel.set_can_save_json(True)
             self.actions_panel.set_can_export_xml(True)
+            self.actions_panel.set_can_export_edl(True)
             self.actions_panel.set_can_place(True)
             self.settings_panel.update_pace_estimate(
                 bpm=res.get("tempo"),
@@ -436,6 +441,7 @@ class BeatMarkerApp(tk.Tk):
             err = res.get("message", "Неизвестная ошибка")
             self.actions_panel.set_can_save_json(False)
             self.actions_panel.set_can_export_xml(False)
+            self.actions_panel.set_can_export_edl(False)
             self.actions_panel.set_status(f"Ошибка: {err}", "#ef5350")
             self.log_dialog.append_log(f"\n[ОШИБКА]: {err}")
             self.progress_dialog.set_error(err)
@@ -462,6 +468,7 @@ class BeatMarkerApp(tk.Tk):
         self.results_panel.update_results(self.last_analysis_result)
         self.actions_panel.set_can_save_json(True)
         self.actions_panel.set_can_export_xml(True)
+        self.actions_panel.set_can_export_edl(True)
         self.actions_panel.set_can_place(True)
         self.actions_panel.set_status(f"Маркеры отредактированы: {len(updated_strong_beats)} долей", "#4fc3f7")
 
@@ -470,6 +477,7 @@ class BeatMarkerApp(tk.Tk):
         self.actions_panel.btn_analyze.config(state="normal")
         self.actions_panel.set_can_save_json(False)
         self.actions_panel.set_can_export_xml(False)
+        self.actions_panel.set_can_export_edl(False)
         self.actions_panel.set_status(f"Ошибка: {err_msg}", "#ef5350")
         self.log_dialog.append_log(f"\n[КРИТИЧЕСКАЯ ОШИБКА]: {err_msg}")
         self.progress_dialog.set_error(err_msg)
@@ -569,6 +577,78 @@ class BeatMarkerApp(tk.Tk):
             self.actions_panel.set_status("Ошибка экспорта XML", "#ef5350")
             self.log_dialog.append_log(f"[ОШИБКА экспорта XML]: {e}")
             messagebox.showerror("Ошибка экспорта", f"Не удалось экспортировать FCP XML:\n{e}")
+
+    def _export_edl(self):
+        """Экспорт маркеров долей в файл CMX 3600 EDL для DaVinci Resolve."""
+        if not self.last_analysis_result:
+            messagebox.showwarning("Внимание", "Сначала выполните анализ музыки (кнопка '⚡ Запуск').")
+            return
+
+        proj = bm.connect()
+        proj_name = proj.GetName() if proj else "DefaultProject"
+        tl_name = self.settings_panel.var_timeline.get() or "Sequence"
+
+        # Базовая папка сохранения: output/[project_name]
+        default_dir = os.path.abspath(f"output/{proj_name}")
+        baked_audio_path = self.last_analysis_result.get("_baked_audio_path")
+        if baked_audio_path and os.path.exists(baked_audio_path):
+            default_dir = os.path.dirname(os.path.abspath(baked_audio_path))
+
+        default_filename = f"{tl_name}_markers.edl"
+        fps = float(self.last_analysis_result.get("timeline_fps", 23.976))
+        strong_beats = self.last_analysis_result.get("_strong_beats_data", [])
+        current_color = self.settings_panel.var_color.get()
+
+        dlg = ExportEdlDialog(
+            self,
+            initial_dir=default_dir,
+            initial_filename=default_filename,
+            fps=fps,
+            beats_count=len(strong_beats),
+            default_color=current_color
+        )
+        self.wait_window(dlg)
+
+        if not dlg.result:
+            return
+
+        out_dir = dlg.result.get("output_dir", default_dir)
+        filename = dlg.result.get("filename", default_filename)
+        marker_color = dlg.result.get("color", current_color)
+        out_edl_path = os.path.join(out_dir, filename)
+
+        try:
+            saved_path = edl_exporter.export_to_edl(
+                output_edl_path=out_edl_path,
+                strong_beats=strong_beats,
+                title=tl_name,
+                timeline_fps=fps,
+                default_color=marker_color,
+                log_fn=self.log_dialog.append_log
+            )
+            self.actions_panel.set_status(f"EDL сохранен: {Path(saved_path).name}", "#4caf50")
+            self.log_dialog.append_log(f"[УСПЕХ] Экспорт EDL маркеров завершен: {saved_path}")
+
+            # Открываем проводник с выделенным файлом
+            try:
+                norm_path = os.path.normpath(saved_path)
+                subprocess.Popen(f'explorer /select,"{norm_path}"')
+            except Exception as e_exp:
+                self.log_dialog.append_log(f"[Предупреждение] Не удалось открыть проводник: {e_exp}")
+
+            messagebox.showinfo(
+                "Экспорт EDL завершен",
+                f"Файл маркеров EDL успешно создан:\n{saved_path}\n\n"
+                f"Как применить в DaVinci Resolve:\n"
+                f"1. Откройте нужный таймлайн.\n"
+                f"2. Кликните правой кнопкой на таймлайн в Media Pool.\n"
+                f"3. Выберите: Timelines → Import → Timeline Markers from EDL..."
+            )
+        except Exception as e:
+            self.actions_panel.set_status("Ошибка экспорта EDL", "#ef5350")
+            self.log_dialog.append_log(f"[ОШИБКА экспорта EDL]: {e}")
+            messagebox.showerror("Ошибка экспорта", f"Не удалось экспортировать EDL:\n{e}")
+
 
 
     # ─── ФАЗА 2: Разметка маркеров (в DaVinci) ─────────────────────────────────

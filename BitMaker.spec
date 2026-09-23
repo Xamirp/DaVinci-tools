@@ -27,8 +27,10 @@ hiddenimports = [
     'gui.timeline_panel',
     'beat_marker',
     'beat_marker_gui',
-    'fcp_xml_exporter'
+    'fcp_xml_exporter',
+    'edl_exporter'
 ]
+
 
 
 a = Analysis(

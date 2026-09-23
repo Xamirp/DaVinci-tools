@@ -492,3 +492,109 @@ class ExportFcpXmlDialog(tk.Toplevel):
         self.grab_release()
         self.destroy()
 
+
+class ExportEdlDialog(tk.Toplevel):
+    """Модальный диалог экспорта маркеров таймлайна в формат CMX 3600 EDL (для DaVinci Resolve)."""
+    def __init__(self, parent, initial_dir: str, initial_filename: str, fps: float,
+                 beats_count: int, default_color: str = "Red"):
+        super().__init__(parent)
+        self.title("Экспорт маркеров EDL (DaVinci Resolve)")
+        self.geometry("540x330")
+        self.minsize(480, 290)
+        self.resizable(False, False)
+        self.configure(bg=BG_DARK)
+
+        self.transient(parent)
+        self.grab_set()
+
+        self.result = None
+        self.fps = fps
+        self.beats_count = beats_count
+
+        self.var_dir = tk.StringVar(value=str(initial_dir))
+        self.var_filename = tk.StringVar(value=str(initial_filename))
+        self.var_color = tk.StringVar(value=str(default_color))
+
+        self._build_ui()
+
+        # Центрирование относительно родителя
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=16, style="Panel.TFrame")
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Экспорт маркеров в CMX 3600 EDL (.edl)", style="Section.TLabel").pack(anchor="w", pady=(0, 10))
+
+        # 1. Папка сохранения
+        r1 = ttk.Frame(frame, style="Panel.TFrame")
+        r1.pack(fill="x", pady=4)
+        ttk.Label(r1, text="Папка сохранения:", width=18, style="Panel.TLabel").pack(side="left")
+        ttk.Entry(r1, textvariable=self.var_dir).pack(side="left", fill="x", expand=True, padx=(0, 6))
+        ttk.Button(r1, text="Обзор...", width=10, command=self._browse_dir).pack(side="right")
+
+        # 2. Имя файла
+        r2 = ttk.Frame(frame, style="Panel.TFrame")
+        r2.pack(fill="x", pady=4)
+        ttk.Label(r2, text="Имя EDL-файла:", width=18, style="Panel.TLabel").pack(side="left")
+        ttk.Entry(r2, textvariable=self.var_filename).pack(side="left", fill="x", expand=True)
+
+        # 3. Цвет маркеров
+        r3 = ttk.Frame(frame, style="Panel.TFrame")
+        r3.pack(fill="x", pady=(6, 4))
+        ttk.Label(r3, text="Цвет маркеров:", width=18, style="Panel.TLabel").pack(side="left")
+        colors = ["Red", "Blue", "Green", "Yellow", "Cyan", "Pink", "Purple", "Fuchsia", "Rose", "Lavender", "Sky", "Mint", "Lemon", "Sand", "Cocoa", "White"]
+        cb_color = ttk.Combobox(r3, textvariable=self.var_color, values=colors, state="readonly", width=16)
+        cb_color.pack(side="left")
+
+        # 4. Сводная информация и подсказка
+        info_text = (
+            f"⏱️ Частота кадров: {self.fps:.3f} fps | Маркеров к экспорту: {self.beats_count}\n"
+            f"💡 Как импортировать в DaVinci Resolve:\n"
+            f"   Кликните правой кнопкой на Таймлайн → Timelines → Import → Timeline Markers from EDL..."
+        )
+        lbl_info = ttk.Label(frame, text=info_text, style="Muted.TLabel", justify="left")
+        lbl_info.pack(anchor="w", pady=(8, 10))
+
+        # 5. Кнопки внизу
+        sep = ttk.Separator(frame, orient="horizontal")
+        sep.pack(fill="x", pady=(4, 10))
+
+        btn_box = ttk.Frame(frame, style="Panel.TFrame")
+        btn_box.pack(fill="x")
+
+        ttk.Button(btn_box, text="📄 Экспортировать EDL", style="Accent.TButton", command=self.on_export).pack(side="right", padx=(6, 0))
+        ttk.Button(btn_box, text="Отмена", command=self.on_cancel).pack(side="right")
+
+    def _browse_dir(self):
+        chosen = filedialog.askdirectory(initialdir=self.var_dir.get(), parent=self)
+        if chosen:
+            self.var_dir.set(os.path.normpath(chosen))
+
+    def on_export(self):
+        d = self.var_dir.get().strip()
+        f = self.var_filename.get().strip()
+        if not f:
+            f = "timeline_markers.edl"
+        if not f.lower().endswith(".edl"):
+            f += ".edl"
+
+        self.result = {
+            "output_dir": d,
+            "filename": f,
+            "color": self.var_color.get(),
+        }
+        self.grab_release()
+        self.destroy()
+
+    def on_cancel(self):
+        self.result = None
+        self.grab_release()
+        self.destroy()
+
+
