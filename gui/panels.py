@@ -314,8 +314,8 @@ class ResultsPanel(PanelBase):
 
 class ActionsPanel(PanelBase):
     """Панель управляющих действий двухфазного жизненного цикла."""
-    def __init__(self, parent, on_analyze=None, on_save_json=None, on_place_markers=None, on_clear_markers=None,
-                 on_save_settings=None, on_undo=None, on_view_log=None):
+    def __init__(self, parent, on_analyze=None, on_save_json=None, on_export_xml=None, on_place_markers=None,
+                 on_clear_markers=None, on_save_settings=None, on_undo=None, on_view_log=None):
         super().__init__(parent, title="Действия")
 
         # Основные кнопки процесса
@@ -334,9 +334,12 @@ class ActionsPanel(PanelBase):
         self.btn_clear = ttk.Button(row1, text="🗑 Очистить маркеры", style="Danger.TButton", command=on_clear_markers, takefocus=False)
         self.btn_clear.pack(side="left")
 
-        # Экспорт: Сохранить в JSON (отдельно справа)
+        # Экспорт FCP XML и сохранение в JSON (справа)
         self.btn_save_json = ttk.Button(row1, text="💾 Сохранить в JSON", command=on_save_json, state="disabled", takefocus=False)
         self.btn_save_json.pack(side="right")
+
+        self.btn_export_xml = ttk.Button(row1, text="🎬 Экспорт FCP XML", command=on_export_xml, state="disabled", takefocus=False)
+        self.btn_export_xml.pack(side="right", padx=(0, 6))
 
         # Вспомогательные кнопки
         row2 = ttk.Frame(self, style="Panel.TFrame")
@@ -360,8 +363,12 @@ class ActionsPanel(PanelBase):
     def set_can_save_json(self, can_save):
         self.btn_save_json.config(state="normal" if can_save else "disabled")
 
+    def set_can_export_xml(self, can_export):
+        self.btn_export_xml.config(state="normal" if can_export else "disabled")
+
     def set_can_place(self, can_place):
         self.btn_place.config(state="normal" if can_place else "disabled")
 
     def set_can_undo(self, can_undo):
         self.btn_undo.config(state="normal" if can_undo else "disabled")
+

@@ -35,11 +35,13 @@ if not getattr(sys, "frozen", False):
         raise SystemExit(0)
 
 import beat_marker as bm
+import fcp_xml_exporter as fcp_exporter
 from gui.theme import apply_theme, BG_DARK, TEXT_MAIN
 from gui.command_manager import CommandManager, PlaceMarkersCommand, ClearMarkersCommand
-from gui.dialogs import LogDialog, AdaptiveSettingsDialog, ProgressDialog
+from gui.dialogs import LogDialog, AdaptiveSettingsDialog, ProgressDialog, ExportFcpXmlDialog
 from gui.panels import HeaderPanel, SettingsPanel, ResultsPanel, ActionsPanel
 from gui.timeline_panel import TimelineWaveformPanel
+
 
 SETTINGS_FILE = SCRIPT_DIR / "settings.json"
 
@@ -186,6 +188,7 @@ class BeatMarkerApp(tk.Tk):
             container,
             on_analyze=self._start_analysis,
             on_save_json=self._save_beats_to_json,
+            on_export_xml=self._export_fcp_xml,
             on_place_markers=self._start_place_markers,
             on_clear_markers=self._start_clear_markers,
             on_save_settings=self._save_settings_clicked,
@@ -193,6 +196,7 @@ class BeatMarkerApp(tk.Tk):
             on_view_log=self._open_log_dialog
         )
         self.actions_panel.pack(fill="x", pady=(0, 2))
+
 
         # Загрузка значений настроек в поля панели
         self._apply_settings_to_ui()
@@ -398,6 +402,7 @@ class BeatMarkerApp(tk.Tk):
             self.last_analysis_result = res
             self.results_panel.update_results(res)
             self.actions_panel.set_can_save_json(True)
+            self.actions_panel.set_can_export_xml(True)
             self.actions_panel.set_can_place(True)
             self.settings_panel.update_pace_estimate(
                 bpm=res.get("tempo"),
@@ -430,6 +435,7 @@ class BeatMarkerApp(tk.Tk):
         else:
             err = res.get("message", "Неизвестная ошибка")
             self.actions_panel.set_can_save_json(False)
+            self.actions_panel.set_can_export_xml(False)
             self.actions_panel.set_status(f"Ошибка: {err}", "#ef5350")
             self.log_dialog.append_log(f"\n[ОШИБКА]: {err}")
             self.progress_dialog.set_error(err)
@@ -455,6 +461,7 @@ class BeatMarkerApp(tk.Tk):
 
         self.results_panel.update_results(self.last_analysis_result)
         self.actions_panel.set_can_save_json(True)
+        self.actions_panel.set_can_export_xml(True)
         self.actions_panel.set_can_place(True)
         self.actions_panel.set_status(f"Маркеры отредактированы: {len(updated_strong_beats)} долей", "#4fc3f7")
 
@@ -462,6 +469,7 @@ class BeatMarkerApp(tk.Tk):
         self.is_analyzing = False
         self.actions_panel.btn_analyze.config(state="normal")
         self.actions_panel.set_can_save_json(False)
+        self.actions_panel.set_can_export_xml(False)
         self.actions_panel.set_status(f"Ошибка: {err_msg}", "#ef5350")
         self.log_dialog.append_log(f"\n[КРИТИЧЕСКАЯ ОШИБКА]: {err_msg}")
         self.progress_dialog.set_error(err_msg)
@@ -488,6 +496,80 @@ class BeatMarkerApp(tk.Tk):
             self.actions_panel.set_status("Ошибка сохранения JSON", "#ef5350")
             self.log_dialog.append_log(f"[ОШИБКА сохранения JSON]: {e}")
             messagebox.showerror("Ошибка", f"Не удалось сохранить файл JSON:\n{e}")
+
+    def _export_fcp_xml(self):
+        """Экспорт скомпилированного аудиофайла и маркеров в Final Cut Pro 7 XML."""
+        if not self.last_analysis_result:
+            messagebox.showwarning("Внимание", "Сначала выполните анализ музыки (кнопка '⚡ Запуск').")
+            return
+
+        baked_audio_path = self.last_analysis_result.get("_baked_audio_path")
+        if not baked_audio_path or not os.path.exists(baked_audio_path):
+            messagebox.showerror("Ошибка", "Скомпилированный аудиофайл не найден. Пожалуйста, выполните анализ заново.")
+            return
+
+        proj = bm.connect()
+        proj_name = proj.GetName() if proj else "DefaultProject"
+        tl_name = self.settings_panel.var_timeline.get() or "Sequence"
+
+        # Базовая папка сохранения: output/[project_name] (где лежит baked_audio)
+        default_dir = os.path.dirname(os.path.abspath(baked_audio_path))
+        default_filename = f"{tl_name}_beats_fcp7.xml"
+        fps = float(self.last_analysis_result.get("timeline_fps", 23.976))
+        strong_beats = self.last_analysis_result.get("_strong_beats_data", [])
+
+        # Открываем диалог параметров экспорта FCP XML
+        dlg = ExportFcpXmlDialog(
+            self,
+            initial_dir=default_dir,
+            initial_filename=default_filename,
+            audio_path=baked_audio_path,
+            fps=fps,
+            beats_count=len(strong_beats),
+            default_target="clip"
+        )
+        self.wait_window(dlg)
+
+        if not dlg.result:
+            return
+
+        out_dir = dlg.result.get("output_dir", default_dir)
+        filename = dlg.result.get("filename", default_filename)
+        marker_target = dlg.result.get("marker_target", "clip")
+        out_xml_path = os.path.join(out_dir, filename)
+        marker_color = self.settings_panel.var_color.get()
+
+        try:
+            saved_path = fcp_exporter.export_to_fcp7_xml(
+                output_xml_path=out_xml_path,
+                audio_file_path=baked_audio_path,
+                strong_beats=strong_beats,
+                sequence_name=tl_name,
+                timeline_fps=fps,
+                sample_rate=48000,
+                marker_target=marker_target,
+                default_color=marker_color,
+                log_fn=self.log_dialog.append_log
+            )
+            self.actions_panel.set_status(f"FCP XML сохранен: {Path(saved_path).name}", "#4caf50")
+            self.log_dialog.append_log(f"[УСПЕХ] Экспорт FCP XML завершен: {saved_path}")
+
+            # Открываем проводник с выделенным файлом
+            try:
+                norm_path = os.path.normpath(saved_path)
+                subprocess.Popen(f'explorer /select,"{norm_path}"')
+            except Exception as e_exp:
+                self.log_dialog.append_log(f"[Предупреждение] Не удалось открыть проводник: {e_exp}")
+
+            messagebox.showinfo(
+                "Экспорт завершен",
+                f"FCP7 XML успешно экспортирован:\n{saved_path}\n\nФайл можно импортировать в DaVinci Resolve, Premiere Pro или Final Cut."
+            )
+        except Exception as e:
+            self.actions_panel.set_status("Ошибка экспорта XML", "#ef5350")
+            self.log_dialog.append_log(f"[ОШИБКА экспорта XML]: {e}")
+            messagebox.showerror("Ошибка экспорта", f"Не удалось экспортировать FCP XML:\n{e}")
+
 
     # ─── ФАЗА 2: Разметка маркеров (в DaVinci) ─────────────────────────────────
 

@@ -3,10 +3,12 @@
 dialogs.py — Диалоговые окна: немодальный лог (LogDialog) и модальный диалог адаптивного режима (AdaptiveSettingsDialog).
 """
 
+import os
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog
 from .theme import BG_DARK, BG_PANEL, BG_ENTRY, TEXT_MAIN, TEXT_MUTED, TEXT_ACCENT, BORDER_COLOR
 from .panels import FREQUENCY_MAP, LABEL_TO_FREQ, FREQ_TO_LABEL
+
 
 
 class LogDialog(tk.Toplevel):
@@ -360,3 +362,127 @@ class ProgressDialog(tk.Toplevel):
             self.after_cancel(self._auto_close_job)
             self._auto_close_job = None
         self.withdraw()
+
+
+class ExportFcpXmlDialog(tk.Toplevel):
+    """Модальный диалог экспорта последовательности в Final Cut Pro 7 XML."""
+    def __init__(self, parent, initial_dir: str, initial_filename: str, audio_path: str,
+                 fps: float, beats_count: int, default_target: str = "clip"):
+        super().__init__(parent)
+        self.title("Экспорт последовательности FCP7 XML")
+        self.geometry("540x360")
+        self.minsize(480, 320)
+        self.resizable(False, False)
+        self.configure(bg=BG_DARK)
+
+        self.transient(parent)
+        self.grab_set()
+
+        self.result = None
+        self.audio_path = audio_path
+        self.fps = fps
+        self.beats_count = beats_count
+
+        self.var_dir = tk.StringVar(value=str(initial_dir))
+        self.var_filename = tk.StringVar(value=str(initial_filename))
+        self.var_target = tk.StringVar(value=default_target)  # "clip", "timeline", "both"
+
+        self._build_ui()
+
+        # Центрирование относительно родителя
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() - self.winfo_width()) // 2
+        y = parent.winfo_y() + (parent.winfo_height() - self.winfo_height()) // 2
+        self.geometry(f"+{max(0, x)}+{max(0, y)}")
+
+        self.protocol("WM_DELETE_WINDOW", self.on_cancel)
+
+    def _build_ui(self):
+        frame = ttk.Frame(self, padding=16, style="Panel.TFrame")
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Экспорт в Final Cut Pro 7 XML (.xml)", style="Section.TLabel").pack(anchor="w", pady=(0, 10))
+
+        # 1. Папка сохранения
+        r1 = ttk.Frame(frame, style="Panel.TFrame")
+        r1.pack(fill="x", pady=4)
+        ttk.Label(r1, text="Папка сохранения:", width=18, style="Panel.TLabel").pack(side="left")
+        ttk.Entry(r1, textvariable=self.var_dir).pack(side="left", fill="x", expand=True, padx=(0, 6))
+        ttk.Button(r1, text="Обзор...", width=10, command=self._browse_dir).pack(side="right")
+
+        # 2. Имя файла
+        r2 = ttk.Frame(frame, style="Panel.TFrame")
+        r2.pack(fill="x", pady=4)
+        ttk.Label(r2, text="Имя XML-файла:", width=18, style="Panel.TLabel").pack(side="left")
+        ttk.Entry(r2, textvariable=self.var_filename).pack(side="left", fill="x", expand=True)
+
+        # 3. Размещение маркеров
+        r3 = ttk.LabelFrame(frame, text=" Размещение маркеров долей ", padding=(10, 6))
+        r3.pack(fill="x", pady=(10, 8))
+
+        rb1 = ttk.Radiobutton(
+            r3,
+            text="На аудиоклипе (Clip markers) — рекомендуется для цельного аудиоклипа",
+            value="clip",
+            variable=self.var_target
+        )
+        rb1.pack(anchor="w", pady=2)
+
+        rb2 = ttk.Radiobutton(
+            r3,
+            text="На таймлайне (Sequence / Timeline markers)",
+            value="timeline",
+            variable=self.var_target
+        )
+        rb2.pack(anchor="w", pady=2)
+
+        rb3 = ttk.Radiobutton(
+            r3,
+            text="И на клипе, и на таймлайне (Both)",
+            value="both",
+            variable=self.var_target
+        )
+        rb3.pack(anchor="w", pady=2)
+
+        # 4. Сводная информация
+        audio_name = os.path.basename(self.audio_path) if self.audio_path else "—"
+        info_text = f"🎵 Аудиофайл: {audio_name}\n⏱️ FPS: {self.fps:.3f} | Долей/битов: {self.beats_count} | Таймкод: 00:00:00:00"
+        lbl_info = ttk.Label(frame, text=info_text, style="Muted.TLabel", justify="left")
+        lbl_info.pack(anchor="w", pady=(4, 10))
+
+        # 5. Кнопки внизу
+        sep = ttk.Separator(frame, orient="horizontal")
+        sep.pack(fill="x", pady=(4, 10))
+
+        btn_box = ttk.Frame(frame, style="Panel.TFrame")
+        btn_box.pack(fill="x")
+
+        ttk.Button(btn_box, text="🎬 Экспортировать", style="Accent.TButton", command=self.on_export).pack(side="right", padx=(6, 0))
+        ttk.Button(btn_box, text="Отмена", command=self.on_cancel).pack(side="right")
+
+    def _browse_dir(self):
+        chosen = filedialog.askdirectory(initialdir=self.var_dir.get(), parent=self)
+        if chosen:
+            self.var_dir.set(os.path.normpath(chosen))
+
+    def on_export(self):
+        d = self.var_dir.get().strip()
+        f = self.var_filename.get().strip()
+        if not f:
+            f = "sequence_beats_fcp7.xml"
+        if not f.lower().endswith(".xml"):
+            f += ".xml"
+
+        self.result = {
+            "output_dir": d,
+            "filename": f,
+            "marker_target": self.var_target.get(),
+        }
+        self.grab_release()
+        self.destroy()
+
+    def on_cancel(self):
+        self.result = None
+        self.grab_release()
+        self.destroy()
+

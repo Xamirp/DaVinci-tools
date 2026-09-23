@@ -26,8 +26,10 @@ hiddenimports = [
     'gui.command_manager',
     'gui.timeline_panel',
     'beat_marker',
-    'beat_marker_gui'
+    'beat_marker_gui',
+    'fcp_xml_exporter'
 ]
+
 
 a = Analysis(
     ['main.py'],
