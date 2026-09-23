@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """beat_marker_gui.py — Графический интерфейс для анализа музыки и расстановки маркеров в DaVinci Resolve.
+Локализовано через i18n (EN / UK / RU).
 """
 
 import sys
@@ -38,16 +39,16 @@ import beat_marker as bm
 import fcp_xml_exporter as fcp_exporter
 import edl_exporter as edl_exporter
 from gui.theme import apply_theme, BG_DARK, TEXT_MAIN
+from gui.i18n import tr, set_language, get_current_language, register_language_listener, LANGUAGES
 from gui.command_manager import CommandManager, PlaceMarkersCommand, ClearMarkersCommand
 from gui.dialogs import LogDialog, AdaptiveSettingsDialog, ProgressDialog, ExportFcpXmlDialog, ExportEdlDialog
 from gui.panels import HeaderPanel, SettingsPanel, ResultsPanel, ActionsPanel
 from gui.timeline_panel import TimelineWaveformPanel
 
-
-
 SETTINGS_FILE = SCRIPT_DIR / "settings.json"
 
 DEFAULT_SETTINGS = {
+    "language": "en",
     "timeline": "intro",
     "track_index": 2,
     "frequency": 0,
@@ -82,13 +83,19 @@ def save_settings(s):
 
 
 class BeatMarkerApp(tk.Tk):
-    """Главное окно приложения Beat Marker с компонентной архитектурой."""
+    """Главное окно приложения Beat Marker с компонентной архитектурой и поддержкой i18n."""
     def __init__(self):
         super().__init__()
-        self.title("BitMaker — DaVinci Resolve Beat Assistant")
+        self.settings = load_settings()
+        
+        # Устанавливаем язык из настроек
+        cur_lang = self.settings.get("language", "en")
+        set_language(cur_lang)
+        register_language_listener(self._on_language_changed)
+
+        self.title(tr("app_title"))
         self.minsize(720, 640)
 
-        self.settings = load_settings()
         w = self.settings.get("window_width", 840)
         h = self.settings.get("window_height", 740)
         self.geometry(f"{w}x{h}")
@@ -100,7 +107,7 @@ class BeatMarkerApp(tk.Tk):
         self.cmd_manager = CommandManager()
         self.cmd_manager.add_listener(self._on_undo_state_changed)
 
-        # Диалог лога (немодальный, доступен по кнопке Просмотр лога)
+        # Диалог лога
         self.log_dialog = LogDialog(self)
         self.log_dialog.withdraw()
 
@@ -112,7 +119,8 @@ class BeatMarkerApp(tk.Tk):
         self.last_analysis_result = None
         self.is_analyzing = False
 
-        # Построение интерфейса
+        # Построение меню и интерфейса
+        self._build_menu()
         self._build_ui()
 
         # Привязка горячих клавиш Undo / Redo
@@ -123,14 +131,14 @@ class BeatMarkerApp(tk.Tk):
         self.bind("<Control-Shift-Z>", lambda e: self._on_redo())
         self.bind("<Control-Shift-z>", lambda e: self._on_redo())
 
-        # Отвязываем клавишу Space от кнопок, чтобы Space управлял аудиоплеером
+        # Отвязываем клавишу Space от кнопок
         try:
             self.unbind_class("TButton", "<space>")
             self.unbind_class("Button", "<space>")
         except Exception:
             pass
 
-        # Безопасные горячие клавиши таймлайна (не перехватывают ввод в Entry/Spinbox)
+        # Безопасные горячие клавиши таймлайна
         def _safe_hotkey(action):
             def _h(event):
                 focused = self.focus_get()
@@ -151,17 +159,70 @@ class BeatMarkerApp(tk.Tk):
         self.bind_all("<BackSpace>", _safe_hotkey(self.timeline_panel.delete_selected_marker))
         self.bind_all("<s>", _safe_hotkey(self.timeline_panel.toggle_snap))
         self.bind_all("<S>", _safe_hotkey(self.timeline_panel.toggle_snap))
+        self.bind_all("<F5>", lambda e: self._refresh_davinci_state())
 
         # Инициализация подключения и данных
         self._refresh_davinci_state()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _build_menu(self):
+        menubar = tk.Menu(self, bg="#222222", fg="#ffffff", activebackground="#0d47a1", activeforeground="#ffffff")
+        
+        # 1. File
+        file_menu = tk.Menu(menubar, tearoff=0, bg="#222222", fg="#ffffff")
+        file_menu.add_command(label=tr("menu_export_edl"), command=self._export_edl)
+        file_menu.add_command(label=tr("menu_export_xml"), command=self._export_fcp_xml)
+        file_menu.add_command(label=tr("menu_export_json"), command=self._save_beats_to_json)
+        file_menu.add_separator()
+        file_menu.add_command(label=tr("menu_exit"), command=self._on_close)
+        menubar.add_cascade(label=tr("menu_file"), menu=file_menu)
+
+        # 2. View
+        view_menu = tk.Menu(menubar, tearoff=0, bg="#222222", fg="#ffffff")
+        view_menu.add_command(label=tr("menu_show_log"), command=self._open_log_dialog)
+        menubar.add_cascade(label=tr("menu_view"), menu=view_menu)
+
+        # 3. Language
+        lang_menu = tk.Menu(menubar, tearoff=0, bg="#222222", fg="#ffffff")
+        lang_menu.add_command(label="English (EN)", command=lambda: self._set_app_language("en"))
+        lang_menu.add_command(label="Українська (UK)", command=lambda: self._set_app_language("uk"))
+        lang_menu.add_command(label="Русский (RU)", command=lambda: self._set_app_language("ru"))
+        menubar.add_cascade(label=tr("menu_language"), menu=lang_menu)
+
+        # 4. Help
+        help_menu = tk.Menu(menubar, tearoff=0, bg="#222222", fg="#ffffff")
+        help_menu.add_command(label=tr("menu_shortcuts"), command=self._show_shortcuts)
+        help_menu.add_separator()
+        help_menu.add_command(label=tr("menu_about"), command=self._show_about)
+        menubar.add_cascade(label=tr("menu_help"), menu=help_menu)
+
+        self.config(menu=menubar)
+
+    def _set_app_language(self, lang_code):
+        if set_language(lang_code):
+            self.settings["language"] = lang_code
+            save_settings(self.settings)
+
+    def _on_language_changed(self, lang_code):
+        self.title(tr("app_title"))
+        self._build_menu()
+        self.header_panel.update_locale()
+        self.settings_panel.update_locale()
+        self.results_panel.update_locale()
+        self.timeline_panel.update_locale()
+        self.actions_panel.update_locale()
+        self.log_dialog.update_locale()
 
     def _build_ui(self):
         container = ttk.Frame(self, padding=8)
         container.pack(fill="both", expand=True)
 
         # 1. Панель заголовка и статуса проекта
-        self.header_panel = HeaderPanel(container, on_refresh=self._refresh_davinci_state)
+        self.header_panel = HeaderPanel(
+            container,
+            on_refresh=self._refresh_davinci_state,
+            on_language_change=self._set_app_language
+        )
         self.header_panel.pack(fill="x", pady=(0, 6))
 
         # 2. Панель параметров
@@ -200,8 +261,6 @@ class BeatMarkerApp(tk.Tk):
         )
         self.actions_panel.pack(fill="x", pady=(0, 2))
 
-
-
         # Загрузка значений настроек в поля панели
         self._apply_settings_to_ui()
 
@@ -219,6 +278,7 @@ class BeatMarkerApp(tk.Tk):
 
     def _collect_settings_from_ui(self):
         return {
+            "language": get_current_language(),
             "timeline": self.settings_panel.var_timeline.get(),
             "track_index": self.settings_panel.var_track_index.get(),
             "frequency": self.settings_panel.get_frequency_value(),
@@ -238,7 +298,7 @@ class BeatMarkerApp(tk.Tk):
             proj = bm.connect()
             if not proj:
                 self.header_panel.update_info(False)
-                self.settings_panel.cb_timeline['values'] = ["(DaVinci не запущен)"]
+                self.settings_panel.cb_timeline['values'] = [f"({tr('status_disconnected')})"]
                 return
 
             proj_name = proj.GetName()
@@ -279,7 +339,6 @@ class BeatMarkerApp(tk.Tk):
             else:
                 self.settings_panel.set_target_mode(is_complex=False)
 
-
                 # Загрузка существующего слепка аудио и маркеров в таймлайн
                 baked_wav = target_out.parent / "audio" / f"timeline_A{track_idx}_baked.wav"
                 if baked_wav.exists() and self.timeline_panel.audio_y is None:
@@ -306,7 +365,7 @@ class BeatMarkerApp(tk.Tk):
 
         except Exception as e:
             self.header_panel.update_info(False)
-            self.log_dialog.append_log(f"Ошибка при подключении к DaVinci: {e}")
+            self.log_dialog.append_log(f"Connection error: {e}")
 
     def _on_settings_changed(self):
         try:
@@ -329,17 +388,33 @@ class BeatMarkerApp(tk.Tk):
         except Exception:
             pass
 
-
     def _open_adaptive_dialog(self):
         dlg = AdaptiveSettingsDialog(self, self.settings)
         self.wait_window(dlg)
         if dlg.result:
             self.settings.update(dlg.result)
             save_settings(self.settings)
-            self.actions_panel.set_status("Параметры адаптивного режима обновлены", "#4caf50")
+            self.actions_panel.set_status(tr("status_ready"), "#4caf50")
 
     def _open_log_dialog(self):
         self.log_dialog.show()
+
+    def _show_shortcuts(self):
+        shortcuts_text = (
+            "Space\t\tPlay / Pause Audio\n"
+            "M\t\tAdd Marker at Playhead\n"
+            "Delete / Backspace\tDelete Selected Marker\n"
+            "S\t\tToggle Magnetic Snap\n"
+            "Ctrl + Z\t\tUndo Action\n"
+            "Ctrl + Y\t\tRedo Action\n"
+            "F5\t\tRefresh DaVinci Connection\n"
+            "Mouse Wheel\tScroll Timeline\n"
+            "Ctrl + Wheel\tZoom Timeline In / Out\n"
+        )
+        messagebox.showinfo(tr("dlg_shortcuts_title"), shortcuts_text)
+
+    def _show_about(self):
+        messagebox.showinfo(tr("dlg_about_title"), tr("dlg_about_text"))
 
     # ─── ФАЗА 1: Анализ аудио (Запуск) ─────────────────────────────────────────
 
@@ -350,23 +425,21 @@ class BeatMarkerApp(tk.Tk):
         self.settings = self._collect_settings_from_ui()
         save_settings(self.settings)
 
-        # Лог заполняем в фоне
         self.log_dialog.append_log("\n" + "=" * 60)
-        self.log_dialog.append_log("ФАЗА 1: Запуск анализа аудио")
+        self.log_dialog.append_log(tr("log_phase1_start"))
         self.log_dialog.append_log("=" * 60)
 
-        # Открываем окно прогресса
         self.progress_dialog.show_progress(
-            title="Анализ музыки",
-            status="Подключение к DaVinci Resolve...",
-            detail=f"Таймлайн: '{self.settings['timeline']}' | Трек: A{self.settings['track_index']}"
+            title=tr("btn_analyze"),
+            status=tr("stat_analyzing"),
+            detail=f"{tr('label_timeline')} '{self.settings['timeline']}' | {tr('label_track')} A{self.settings['track_index']}"
         )
 
         self.is_analyzing = True
         self.actions_panel.btn_analyze.config(state="disabled")
         self.actions_panel.set_can_save_json(False)
         self.actions_panel.set_can_place(False)
-        self.actions_panel.set_status("Выполняется анализ...", "#29b6f6")
+        self.actions_panel.set_status(tr("stat_analyzing"), "#29b6f6")
 
         params = {
             "timeline": self.settings["timeline"],
@@ -417,13 +490,14 @@ class BeatMarkerApp(tk.Tk):
                 timeline_fps=res.get("timeline_fps")
             )
             n_beats = len(res.get("strong_beat_frames", []))
-            self.actions_panel.set_status(f"Анализ завершен! Долей: {n_beats}. Готово к сохранению и разметке.", "#4caf50")
-            self.log_dialog.append_log("\n[УСПЕХ] Анализ выполнен! Вы можете прослушать аудио по Space, двигать маркеры или сразу нанести их в DaVinci.")
+            bpm_val = res.get('tempo', 0)
+            self.actions_panel.set_status(tr("log_success_analyzed", bpm=bpm_val, count=n_beats), "#4caf50")
+            self.log_dialog.append_log(tr("log_success_analyzed", bpm=bpm_val, count=n_beats))
 
-            # Закрываем прогресс с красивым статусом
+            # Закрываем прогресс
             self.progress_dialog.finish(
-                status="Анализ успешно завершен!",
-                detail=f"Темп: {res.get('tempo', 0):.1f} BPM | Долей: {n_beats}",
+                status=tr("status_ready"),
+                detail=f"BPM: {bpm_val:.1f} | Beats: {n_beats}",
                 auto_close_ms=750
             )
 
@@ -438,18 +512,17 @@ class BeatMarkerApp(tk.Tk):
                         timeline_fps=res.get("timeline_fps", 23.976)
                     )
                 except Exception as e:
-                    self.log_dialog.append_log(f"[Предупреждение] Не удалось отрисовать таймлайн: {e}")
+                    self.log_dialog.append_log(f"Warning: Could not render timeline: {e}")
         else:
-            err = res.get("message", "Неизвестная ошибка")
+            err = res.get("message", "Unknown error")
             self.actions_panel.set_can_save_json(False)
             self.actions_panel.set_can_export_xml(False)
             self.actions_panel.set_can_export_edl(False)
-            self.actions_panel.set_status(f"Ошибка: {err}", "#ef5350")
-            self.log_dialog.append_log(f"\n[ОШИБКА]: {err}")
+            self.actions_panel.set_status(f"{tr('dlg_error')}: {err}", "#ef5350")
+            self.log_dialog.append_log(f"\n[ERROR]: {err}")
             self.progress_dialog.set_error(err)
 
     def _on_timeline_markers_changed(self, updated_strong_beats):
-        """Синхронизация при ручном перемещении/добавлении/удалении маркера на таймлайне."""
         if self.last_analysis_result is None:
             self.last_analysis_result = {
                 "status": "success",
@@ -472,7 +545,7 @@ class BeatMarkerApp(tk.Tk):
         self.actions_panel.set_can_export_xml(True)
         self.actions_panel.set_can_export_edl(True)
         self.actions_panel.set_can_place(True)
-        self.actions_panel.set_status(f"Маркеры отредактированы: {len(updated_strong_beats)} долей", "#4fc3f7")
+        self.actions_panel.set_status(f"Beats updated: {len(updated_strong_beats)} markers", "#4fc3f7")
 
     def _on_analysis_error(self, err_msg):
         self.is_analyzing = False
@@ -480,14 +553,13 @@ class BeatMarkerApp(tk.Tk):
         self.actions_panel.set_can_save_json(False)
         self.actions_panel.set_can_export_xml(False)
         self.actions_panel.set_can_export_edl(False)
-        self.actions_panel.set_status(f"Ошибка: {err_msg}", "#ef5350")
-        self.log_dialog.append_log(f"\n[КРИТИЧЕСКАЯ ОШИБКА]: {err_msg}")
+        self.actions_panel.set_status(f"{tr('dlg_error')}: {err_msg}", "#ef5350")
+        self.log_dialog.append_log(f"\n[ERROR]: {err_msg}")
         self.progress_dialog.set_error(err_msg)
 
     def _save_beats_to_json(self):
-        """Сохранить результат текущего анализа в JSON."""
         if not self.last_analysis_result:
-            messagebox.showwarning("Внимание", "Сначала выполните анализ музыки (кнопка '⚡ Запуск').")
+            messagebox.showwarning(tr("dlg_warning"), tr("dlg_no_analysis_data"))
             return
 
         try:
@@ -500,35 +572,32 @@ class BeatMarkerApp(tk.Tk):
             )
             if out_file:
                 self.header_panel.lbl_target_path.config(text=str(out_file))
-                self.actions_panel.set_status(f"Биты сохранены: {Path(out_file).name}", "#4caf50")
-                messagebox.showinfo("Успешно", f"Файл битов успешно сохранен:\n{out_file}")
+                self.actions_panel.set_status(f"JSON saved: {Path(out_file).name}", "#4caf50")
+                messagebox.showinfo(tr("dlg_export_success"), f"JSON file saved:\n{out_file}")
         except Exception as e:
-            self.actions_panel.set_status("Ошибка сохранения JSON", "#ef5350")
-            self.log_dialog.append_log(f"[ОШИБКА сохранения JSON]: {e}")
-            messagebox.showerror("Ошибка", f"Не удалось сохранить файл JSON:\n{e}")
+            self.actions_panel.set_status("JSON Error", "#ef5350")
+            self.log_dialog.append_log(f"[JSON Error]: {e}")
+            messagebox.showerror(tr("dlg_error"), f"Failed to save JSON:\n{e}")
 
     def _export_fcp_xml(self):
-        """Экспорт скомпилированного аудиофайла и маркеров в Final Cut Pro 7 XML."""
         if not self.last_analysis_result:
-            messagebox.showwarning("Внимание", "Сначала выполните анализ музыки (кнопка '⚡ Запуск').")
+            messagebox.showwarning(tr("dlg_warning"), tr("dlg_no_analysis_data"))
             return
 
         baked_audio_path = self.last_analysis_result.get("_baked_audio_path")
         if not baked_audio_path or not os.path.exists(baked_audio_path):
-            messagebox.showerror("Ошибка", "Скомпилированный аудиофайл не найден. Пожалуйста, выполните анализ заново.")
+            messagebox.showerror(tr("dlg_error"), "Compiled audio file not found. Please run analysis again.")
             return
 
         proj = bm.connect()
         proj_name = proj.GetName() if proj else "DefaultProject"
         tl_name = self.settings_panel.var_timeline.get() or "Sequence"
 
-        # Базовая папка сохранения: output/[project_name] (где лежит baked_audio)
         default_dir = os.path.dirname(os.path.abspath(baked_audio_path))
         default_filename = f"{tl_name}_beats_fcp7.xml"
         fps = float(self.last_analysis_result.get("timeline_fps", 23.976))
         strong_beats = self.last_analysis_result.get("_strong_beats_data", [])
 
-        # Открываем диалог параметров экспорта FCP XML
         dlg = ExportFcpXmlDialog(
             self,
             initial_dir=default_dir,
@@ -561,36 +630,33 @@ class BeatMarkerApp(tk.Tk):
                 default_color=marker_color,
                 log_fn=self.log_dialog.append_log
             )
-            self.actions_panel.set_status(f"FCP XML сохранен: {Path(saved_path).name}", "#4caf50")
-            self.log_dialog.append_log(f"[УСПЕХ] Экспорт FCP XML завершен: {saved_path}")
+            self.actions_panel.set_status(f"FCP XML: {Path(saved_path).name}", "#4caf50")
+            self.log_dialog.append_log(f"[SUCCESS] Export FCP XML: {saved_path}")
 
-            # Открываем проводник с выделенным файлом
             try:
                 norm_path = os.path.normpath(saved_path)
                 subprocess.Popen(f'explorer /select,"{norm_path}"')
-            except Exception as e_exp:
-                self.log_dialog.append_log(f"[Предупреждение] Не удалось открыть проводник: {e_exp}")
+            except Exception:
+                pass
 
             messagebox.showinfo(
-                "Экспорт завершен",
-                f"FCP7 XML успешно экспортирован:\n{saved_path}\n\nФайл можно импортировать в DaVinci Resolve, Premiere Pro или Final Cut."
+                tr("dlg_export_success"),
+                f"FCP7 XML exported successfully:\n{saved_path}\n\nCompatible with Adobe Premiere Pro and Final Cut Pro 7."
             )
         except Exception as e:
-            self.actions_panel.set_status("Ошибка экспорта XML", "#ef5350")
-            self.log_dialog.append_log(f"[ОШИБКА экспорта XML]: {e}")
-            messagebox.showerror("Ошибка экспорта", f"Не удалось экспортировать FCP XML:\n{e}")
+            self.actions_panel.set_status("XML Error", "#ef5350")
+            self.log_dialog.append_log(f"[XML Error]: {e}")
+            messagebox.showerror(tr("dlg_error"), f"Failed to export XML:\n{e}")
 
     def _export_edl(self):
-        """Экспорт маркеров долей в файл CMX 3600 EDL для DaVinci Resolve."""
         if not self.last_analysis_result:
-            messagebox.showwarning("Внимание", "Сначала выполните анализ музыки (кнопка '⚡ Запуск').")
+            messagebox.showwarning(tr("dlg_warning"), tr("dlg_no_analysis_data"))
             return
 
         proj = bm.connect()
         proj_name = proj.GetName() if proj else "DefaultProject"
         tl_name = self.settings_panel.var_timeline.get() or "Sequence"
 
-        # Базовая папка сохранения: output/[project_name]
         default_dir = os.path.abspath(f"output/{proj_name}")
         baked_audio_path = self.last_analysis_result.get("_baked_audio_path")
         if baked_audio_path and os.path.exists(baked_audio_path):
@@ -628,41 +694,36 @@ class BeatMarkerApp(tk.Tk):
                 default_color=marker_color,
                 log_fn=self.log_dialog.append_log
             )
-            self.actions_panel.set_status(f"EDL сохранен: {Path(saved_path).name}", "#4caf50")
-            self.log_dialog.append_log(f"[УСПЕХ] Экспорт EDL маркеров завершен: {saved_path}")
+            self.actions_panel.set_status(f"EDL: {Path(saved_path).name}", "#4caf50")
+            self.log_dialog.append_log(f"[SUCCESS] Export EDL: {saved_path}")
 
-            # Открываем проводник с выделенным файлом
             try:
                 norm_path = os.path.normpath(saved_path)
                 subprocess.Popen(f'explorer /select,"{norm_path}"')
-            except Exception as e_exp:
-                self.log_dialog.append_log(f"[Предупреждение] Не удалось открыть проводник: {e_exp}")
+            except Exception:
+                pass
 
             messagebox.showinfo(
-                "Экспорт EDL завершен",
-                f"Файл маркеров EDL успешно создан:\n{saved_path}\n\n"
-                f"Как применить в DaVinci Resolve:\n"
-                f"1. Откройте нужный таймлайн.\n"
-                f"2. Кликните правой кнопкой на таймлайн в Media Pool.\n"
-                f"3. Выберите: Timelines → Import → Timeline Markers from EDL..."
+                tr("dlg_export_success"),
+                f"EDL Marker File created:\n{saved_path}\n\n"
+                f"In DaVinci Resolve:\n"
+                f"Right-click Timeline → Timelines → Import → Timeline Markers from EDL..."
             )
         except Exception as e:
-            self.actions_panel.set_status("Ошибка экспорта EDL", "#ef5350")
-            self.log_dialog.append_log(f"[ОШИБКА экспорта EDL]: {e}")
-            messagebox.showerror("Ошибка экспорта", f"Не удалось экспортировать EDL:\n{e}")
-
-
+            self.actions_panel.set_status("EDL Error", "#ef5350")
+            self.log_dialog.append_log(f"[EDL Error]: {e}")
+            messagebox.showerror(tr("dlg_error"), f"Failed to export EDL:\n{e}")
 
     # ─── ФАЗА 2: Разметка маркеров (в DaVinci) ─────────────────────────────────
 
     def _start_place_markers(self):
         if not self.last_analysis_result:
-            messagebox.showwarning("Внимание", "Сначала выполните анализ музыки (кнопка 'Запуск').")
+            messagebox.showwarning(tr("dlg_warning"), tr("dlg_no_analysis_data"))
             return
 
         proj = bm.connect()
         if not proj:
-            messagebox.showerror("Ошибка", "DaVinci Resolve не запущен или нет активного проекта.")
+            messagebox.showerror(tr("dlg_error"), tr("dlg_davinci_not_running"))
             return
 
         tl_name = self.settings_panel.var_timeline.get()
@@ -672,12 +733,12 @@ class BeatMarkerApp(tk.Tk):
         strong_beats = self.last_analysis_result.get("_strong_beats_data", [])
 
         self.log_dialog.append_log("\n" + "-" * 50)
-        self.log_dialog.append_log(f"ФАЗА 2: Нанесение маркеров ({color}) на {target}...")
+        self.log_dialog.append_log(tr("log_phase2_start", color=color, target=target))
 
         self.progress_dialog.show_progress(
-            title="Разметка в DaVinci Resolve",
-            status="Подготовка к расстановке маркеров...",
-            detail=f"Цвет: {color} | Режим: {target} | Долей: {len(strong_beats)}"
+            title=tr("btn_place_markers"),
+            status="Placing markers in DaVinci Resolve...",
+            detail=f"{tr('label_color')} {color} | {tr('label_target')} {target} | Beats: {len(strong_beats)}"
         )
 
         def worker():
@@ -698,11 +759,11 @@ class BeatMarkerApp(tk.Tk):
                 def _done():
                     self.last_analysis_result["markers_placed"] = placed
                     self.results_panel.update_results(self.last_analysis_result)
-                    self.actions_panel.set_status(f"Размечено маркеров: {placed}", "#4caf50")
-                    self.log_dialog.append_log(f"[УСПЕХ] Маркеры успешно размещены в DaVinci Resolve!")
+                    self.actions_panel.set_status(f"Placed {placed} markers", "#4caf50")
+                    self.log_dialog.append_log(tr("log_success_markers"))
                     self.progress_dialog.finish(
-                        status=f"Размечено маркеров: {placed}",
-                        detail=f"Цвет: {color} | Режим: {target}",
+                        status=f"Placed {placed} markers",
+                        detail=f"{color} | {target}",
                         auto_close_ms=750
                     )
 
@@ -715,18 +776,18 @@ class BeatMarkerApp(tk.Tk):
     def _start_clear_markers(self):
         proj = bm.connect()
         if not proj:
-            messagebox.showerror("Ошибка", "DaVinci Resolve не запущен.")
+            messagebox.showerror(tr("dlg_error"), tr("dlg_davinci_not_running"))
             return
 
         tl_name = self.settings_panel.var_timeline.get()
         track_idx = self.settings_panel.var_track_index.get()
         target = self.settings_panel.var_target.get()
-        target_name = "Шкала таймлайна" if target == "timeline" else f"Клипы трека A{track_idx}"
+        target_name = tr("target_desc_timeline") if target == "timeline" else tr("target_desc_clip", track=track_idx)
 
         self.progress_dialog.show_progress(
-            title="Очистка маркеров",
-            status="Удаление всех маркеров...",
-            detail=f"Таймлайн: '{tl_name}', {target_name}"
+            title=tr("btn_clear_markers"),
+            status="Clearing markers...",
+            detail=f"{tr('label_timeline')} '{tl_name}', {target_name}"
         )
 
         def worker():
@@ -745,10 +806,10 @@ class BeatMarkerApp(tk.Tk):
                     if self.last_analysis_result:
                         self.last_analysis_result["markers_placed"] = 0
                         self.results_panel.update_results(self.last_analysis_result)
-                    self.actions_panel.set_status(f"Очищено {deleted} маркеров на {target_name.lower()}", "#ffb74d")
+                    self.actions_panel.set_status(f"Cleared {deleted} markers ({target})", "#ffb74d")
                     self.progress_dialog.finish(
-                        status=f"Очищено {deleted} маркеров",
-                        detail=f"Таргет: {target_name}",
+                        status=f"Cleared {deleted} markers",
+                        detail=f"Target: {target_name}",
                         auto_close_ms=600
                     )
 
@@ -761,12 +822,12 @@ class BeatMarkerApp(tk.Tk):
     def _on_undo(self):
         if self.cmd_manager.can_undo():
             self.cmd_manager.undo()
-            self.actions_panel.set_status("Действие отменено (Undo)", "#4fc3f7")
+            self.actions_panel.set_status("Action undone (Undo)", "#4fc3f7")
 
     def _on_redo(self):
         if self.cmd_manager.can_redo():
             self.cmd_manager.redo()
-            self.actions_panel.set_status("Действие возвращено (Redo)", "#4fc3f7")
+            self.actions_panel.set_status("Action redone (Redo)", "#4fc3f7")
 
     def _on_undo_state_changed(self, can_undo, can_redo):
         self.actions_panel.set_can_undo(can_undo)
@@ -774,8 +835,8 @@ class BeatMarkerApp(tk.Tk):
     def _save_settings_clicked(self):
         self.settings = self._collect_settings_from_ui()
         save_settings(self.settings)
-        self.actions_panel.set_status("Настройки сохранены", "#4caf50")
-        self.after(2000, lambda: self.actions_panel.set_status("Готов к анализу", TEXT_MAIN))
+        self.actions_panel.set_status(tr("status_ready"), "#4caf50")
+        self.after(2000, lambda: self.actions_panel.set_status(tr("status_ready"), TEXT_MAIN))
 
     def _on_close(self):
         try:

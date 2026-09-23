@@ -12,6 +12,7 @@ import numpy as np
 from gui.panels import PanelBase
 from gui.theme import BG_DARK, BG_PANEL, TEXT_MAIN, TEXT_MUTED, ACCENT_BLUE
 from gui.audio_player import AudioPlayer
+from gui.i18n import tr
 from gui.command_manager import (
     MoveTimelineMarkerCommand,
     AddTimelineMarkerCommand,
@@ -49,7 +50,7 @@ class TimelineWaveformPanel(PanelBase):
     """Панель интерактивного таймлайна с огибающей звука и маркерами."""
 
     def __init__(self, parent, command_manager=None, on_markers_changed=None, log_fn=print):
-        super().__init__(parent, title="Интерактивный таймлайн и огибающая звука")
+        super().__init__(parent, title_key="timeline_title")
         self.command_manager = command_manager
         self.on_markers_changed = on_markers_changed
         self.log_fn = log_fn
@@ -98,7 +99,7 @@ class TimelineWaveformPanel(PanelBase):
         tb.pack(fill="x", padx=4, pady=(0, 4))
 
         # 1. Воспроизведение
-        self.btn_play = ttk.Button(tb, text="▶ Воспр. (Space)", command=self.toggle_play, width=16)
+        self.btn_play = ttk.Button(tb, text="▶ Play (Space)", command=self.toggle_play, width=16)
         self.btn_play.pack(side="left", padx=(0, 8))
 
         # 2. Индикатор времени
@@ -112,22 +113,24 @@ class TimelineWaveformPanel(PanelBase):
         self.lbl_time.pack(side="left", padx=(0, 16))
 
         # 3. Привязка (Snap)
-        self.btn_snap = ttk.Button(tb, text="🧲 Привязка: [ ВКЛ ]", command=self.toggle_snap, width=20)
+        self.btn_snap = ttk.Button(tb, text="🧲 Snap: [ ON ]", command=self.toggle_snap, width=18)
         self.btn_snap.pack(side="left", padx=(0, 8))
 
         # 4. Добавление маркера
-        self.btn_add_marker = ttk.Button(tb, text="+ Маркер (M)", command=self.add_marker_at_playhead, width=14)
+        self.btn_add_marker = ttk.Button(tb, text="+ Marker (M)", command=self.add_marker_at_playhead, width=14)
         self.btn_add_marker.pack(side="left", padx=(0, 4))
 
         # 5. Удаление маркера
-        self.btn_del_marker = ttk.Button(tb, text="🗑️ Удалить (Del)", command=self.delete_selected_marker, width=14, state="disabled")
+        self.btn_del_marker = ttk.Button(tb, text="🗑️ Delete (Del)", command=self.delete_selected_marker, width=14, state="disabled")
         self.btn_del_marker.pack(side="left", padx=(0, 16))
 
         # 6. Масштаб
-        ttk.Label(tb, text="Зум:", style="Panel.TLabel").pack(side="left", padx=(4, 2))
+        self.lbl_zoom = ttk.Label(tb, text=tr("label_zoom"), style="Panel.TLabel")
+        self.lbl_zoom.pack(side="left", padx=(4, 2))
         ttk.Button(tb, text="−", width=3, command=self.zoom_out).pack(side="left")
         ttk.Button(tb, text="+", width=3, command=self.zoom_in).pack(side="left", padx=2)
-        ttk.Button(tb, text="↔ Вся ширина", width=12, command=self.zoom_fit).pack(side="left", padx=(4, 0))
+        self.btn_fit = ttk.Button(tb, text="↔ Fit", width=8, command=self.zoom_fit)
+        self.btn_fit.pack(side="left", padx=(4, 0))
 
     def _create_canvas(self):
         cv_frame = ttk.Frame(self, style="Panel.TFrame")
@@ -326,7 +329,7 @@ class TimelineWaveformPanel(PanelBase):
         if self.duration_sec <= 0:
             self.canvas.create_text(
                 200, 80,
-                text="Аудио не загружено. Выполните анализ или запекание.",
+                text=tr("no_data_hint"),
                 fill=COLOR_RULER_TEXT,
                 font=("Segoe UI", 10)
             )
@@ -747,8 +750,8 @@ class TimelineWaveformPanel(PanelBase):
     def toggle_snap(self):
         """Переключить магнитную привязку."""
         self.snap_enabled = not self.snap_enabled
-        status = "[ ВКЛ ]" if self.snap_enabled else "[ ВЫКЛ ]"
-        self.btn_snap.config(text=f"🧲 Привязка: {status}")
+        status = tr("status_on") if self.snap_enabled else tr("status_off")
+        self.btn_snap.config(text=f"🧲 Snap: {status}")
 
     def toggle_play(self):
         """Воспроизведение / пауза по Space."""
@@ -757,11 +760,22 @@ class TimelineWaveformPanel(PanelBase):
 
         is_now_playing = self.player.toggle_play()
         if is_now_playing:
-            self.btn_play.config(text="⏸ Пауза (Space)")
+            self.btn_play.config(text=f"⏸ {tr('btn_pause')} (Space)")
             self._start_playback_loop()
         else:
-            self.btn_play.config(text="▶ Воспр. (Space)")
+            self.btn_play.config(text=f"▶ {tr('btn_play')} (Space)")
             self._stop_playback_loop()
+
+    def update_locale(self):
+        super().update_locale()
+        status = tr("status_on") if self.snap_enabled else tr("status_off")
+        self.btn_snap.config(text=f"🧲 Snap: {status}")
+        self.btn_play.config(text=f"▶ {tr('btn_play')} (Space)" if not self.player.is_playing else f"⏸ {tr('btn_pause')} (Space)")
+        self.btn_add_marker.config(text="+ Marker (M)")
+        self.btn_del_marker.config(text=f"🗑️ {tr('dlg_reset')} (Del)")
+        self.lbl_zoom.config(text=tr("label_zoom"))
+        self.btn_fit.config(text="↔ Fit")
+        self.redraw()
 
     def _start_playback_loop(self):
         self._stop_playback_loop()
@@ -786,7 +800,7 @@ class TimelineWaveformPanel(PanelBase):
             self._playback_job = self.after(33, self._tick_playback)
 
     def _on_playback_finished(self):
-        self.after(0, lambda: self.btn_play.config(text="▶ Воспр. (Space)"))
+        self.after(0, lambda: self.btn_play.config(text=f"▶ {tr('btn_play')} (Space)"))
         self._stop_playback_loop()
         self._update_playhead_pos()
 

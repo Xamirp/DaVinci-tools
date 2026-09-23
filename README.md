@@ -1,172 +1,180 @@
 # 🎵 BitMaker
 
+[![Language: English](https://img.shields.io/badge/Language-English-green)](README.md)
+[![Language: Українська](https://img.shields.io/badge/Language-Українська-blue)](README.uk.md)
+[![Language: Русский](https://img.shields.io/badge/Language-Русский-blue)](README.ru.md)
 [![Built with Google AI Studio](https://img.shields.io/badge/Built%20with-Google%20AI%20Studio-4285F4?style=flat-square&logo=google&logoColor=white)](https://aistudio.google.com/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![DaVinci Resolve](https://img.shields.io/badge/DaVinci%20Resolve-Studio%2018%2F19%2F21-black)](https://www.blackmagicdesign.com/products/davinciresolve)
 
-**BitMaker** — мощная и легкая утилита для автоматического анализа темпа музыки, детекции битов и расстановки маркеров на таймлайне или клипах в **DaVinci Resolve Studio**.
+**BitMaker** is a powerful and lightweight AI-driven tool designed for video editors to automatically analyze musical rhythm, detect beats, and place markers on timelines or audio clips in **DaVinci Resolve Studio**.
 
-
-Включает интерактивный графический интерфейс с визуализацией формы звуковой волны (Waveform), встроенным аудиоплеером, ручным редактированием маркеров и историей действий (Undo/Redo).
-
----
-
-## ✨ Основные возможности
-
-- 🎧 **Автоматический аудиоанализ**:
-  - Точное определение темпа (**BPM**).
-  - Автоопределение музыкального размера (**3/4** и **4/4**).
-  - Расчет RMS-огибающей громкости и динамики.
-- 🎚️ **Гибкие режимы разметки**:
-  - Разметка по тактовой сетке: от 1 удара до 4 тактов на маркер.
-  - **Адаптивный режим**: автоматическое переключение частоты маркеров в зависимости от громкости (тихие / громкие части трека).
-- 🌊 **Интерактивный таймлайн**:
-  - Отображение огибающей звука в реальном времени.
-  - Потоковое воспроизведение с плейхедом и клавишей `Space`.
-  - Перетаскивание маркеров мышью (Drag & Drop) и магнитная привязка (`Snap`).
-  - Добавление маркера клавишей `M` прямо во время воспроизведения.
-  - Полная поддержка отмены/повтора действий (**Undo / Redo** через `Ctrl+Z` / `Ctrl+Y`).
-- 🎬 **Интеграция с DaVinci Resolve**:
-  - Нанесение маркеров любого цвета напрямую на таймлайн или аудиоклип через DaVinci Scripting API.
-  - Автоматическая безопасная сборка и склейка сложных нарезок треков через встроенный FFmpeg.
-  - Защита от сбоев при множественных фрагментах на клипе.
-- 💾 **Экспорт и интеграция**:
-  - **Экспорт маркеров в EDL (`.edl`)**: генерация стандартного файла маркеров CMX 3600 для импорта в любой существующий таймлайн в **DaVinci Resolve** (*Timelines → Import → Timeline Markers from EDL...*).
-  - **Экспорт в Final Cut Pro 7 XML (`.xml`)**: генерация стандартного XML со скомпилированным аудиофайлом и маркерами на клипе/таймлайне для **Adobe Premiere Pro** и **Final Cut Pro 7**.
-  - **Прямая интеграция с DaVinci Resolve**: нанесение маркеров напрямую в активный проект в один клик через встроенный DaVinci Scripting API (кнопка «📍 Разметить в DaVinci»).
-  - **Сохранение в JSON**: выгрузка точных таймингов и метаданных анализа (`music-beats.json`).
+It includes an interactive graphical interface with real-time waveform visualization, a built-in audio player, drag-and-drop marker editing, magnetic snapping, and a full Undo/Redo history stack.
 
 ---
 
-## ⚙️ Настройка DaVinci Resolve (Включение Scripting API)
+## ✨ Key Features
 
-Для того чтобы BitMaker мог автоматически подключаться к запущенному DaVinci Resolve и наносить маркеры напрямую:
-
-1. В верхнем меню DaVinci Resolve откройте **Preferences...** (горячие клавиши `Ctrl + ,`).
-2. Перейдите во вкладку **System** → раздел **General**.
-3. В пункте **External scripting using** установите переключатель на **Local** (или **Network**).
-4. Нажмите кнопку **Save**.
-
-> 💡 **Примечание**: Включение Scripting API требуется для прямого управления маркерами по кнопке «📍 Разметить в DaVinci». Экспорт в файлы `.edl` и `.xml` работает автономно даже без запуска DaVinci Resolve.
-
----
-
-## 💻 Совместимость
-
-- **DaVinci Resolve Studio**: протестировано на **DaVinci Resolve Studio 21.0.2.4** (совместимо с версиями 18, 19, 20, 21+) — прямое управление маркерами через API + импорт маркеров из файлов `.edl`.
-- **Adobe Premiere Pro & Final Cut Pro 7**: полная поддержка импорта последовательности и маркеров через создаваемые файлы `.xml` (FCP7 XML).
-- **ОС**: Windows 10 / 11 (64-bit).
-
----
-
-
-
-## 🚀 Установка и быстрый старт
-
-### Вариант А: Готовая сборка без установки Python (Portable EXE)
-1. Перейдите на страницу **[Releases](https://github.com/Xamirp/DaVinci-tools/releases)** и скачайте архив `BitMaker-Windows-Portable.zip`.
-2. Распакуйте архив в удобное место и запустите `BitMaker.exe`.
-   > Установка Python, Git и дополнительных библиотек в этом режиме **не требуется**.
+- 🎧 **Automatic AI Audio Analysis**:
+  - Accurate tempo detection (**BPM**).
+  - Time signature recognition (**3/4** and **4/4**).
+  - RMS volume envelope and musical dynamic segmentation.
+- 🎚️ **Flexible Marker Density**:
+  - Beat-grid synchronization: from every hit (1 beat) up to every 4 bars.
+  - **Adaptive Mode**: dynamic marker frequency adjustment based on loudness (quiet vs. loud/climax sections).
+- 🌊 **Interactive Waveform Timeline**:
+  - Real-time audio waveform rendering with high-speed Level-of-Detail (LOD) optimization.
+  - Streaming audio playback with playhead tracking and `Space` hotkey control.
+  - Drag-and-drop marker relocation with magnetic beat snapping (`Snap`).
+  - Add markers on the fly with the `M` key during playback.
+  - Full Undo / Redo support (`Ctrl+Z` / `Ctrl+Y`).
+- 🎬 **Seamless DaVinci Resolve Integration**:
+  - One-click direct marker placement via the official DaVinci Resolve Scripting API.
+  - Robust automated audio assembly and seamless baking for multi-clip and sliced track montages via embedded FFmpeg.
+  - Target selection: place markers on clip items or directly onto the timeline ruler.
+  - Universal marker cleaning by target across all marker colors.
+- 💾 **Export & Cross-Platform Compatibility**:
+  - **EDL Marker Export (`.edl`)**: generate industry-standard CMX 3600 marker lists to import markers into any timeline in **DaVinci Resolve** (*Timelines → Import → Timeline Markers from EDL...*).
+  - **Final Cut Pro 7 XML Export (`.xml`)**: export sequences and clip/timeline markers for **Adobe Premiere Pro** and **Final Cut Pro 7**.
+  - **JSON Beat Export**: export clean timestamps and metadata (`music-beats.json`).
+- 🌐 **Multi-Language Interface (i18n)**:
+  - Full support for **English**, **Ukrainian**, and **Russian**.
+  - Instant language switching directly from the top bar and menu.
 
 ---
 
-### Вариант Б: Запуск из исходного кода (Git / Python)
+## ⚙️ DaVinci Resolve Setup (Enabling Scripting API)
 
-#### Требования:
-- **Python**: 3.10 – 3.12 (рекомендуется **[Python 3.12 для Windows](https://www.python.org/downloads/)**).
-  > ⚠️ **Важно при установке Python**: обязательно отметьте галочку **"Add python.exe to PATH"** на первом шаге инсталлятора.
-- **Git**: для клонирования репозитория. Если Git не установлен, скачайте: **[Git for Windows](https://git-scm.com/download/win)**.
-- **FFmpeg**: встроен в папку `bin/` или доступен в системном `PATH`.
+To allow BitMaker to automatically connect to a running DaVinci Resolve Studio instance and place markers directly:
 
-#### 1. Клонирование репозитория
-Откройте терминал (PowerShell / Командная строка) и выполните:
+1. In DaVinci Resolve, open **Preferences...** (shortcut: `Ctrl + ,`).
+2. Navigate to the **System** tab → **General** section.
+3. In the **External scripting using** setting, select **Local** (or **Network**).
+4. Click **Save**.
+
+> 💡 **Note**: Enabling the Scripting API is required for direct one-click marker placement via the "🎯 Place Markers in DaVinci" button. Exporting to `.edl`, `.xml`, and `.json` works autonomously even without DaVinci Resolve running.
+
+---
+
+## 💻 Compatibility
+
+- **DaVinci Resolve Studio**: Tested on **DaVinci Resolve Studio 21.0.2.4** (compatible with versions 18, 19, 20, 21+) — direct API integration + EDL marker import.
+- **Adobe Premiere Pro & Final Cut Pro 7**: Full support for sequence and marker import via generated `.xml` (FCP7 XML) files.
+- **Operating System**: Windows 10 / 11 (64-bit).
+
+---
+
+## 🚀 Installation & Quick Start
+
+### Option A: Portable Standalone Build (No Python installation required)
+1. Go to the **[Releases](https://github.com/Xamirp/DaVinci-tools/releases)** page and download `BitMaker-Windows-Portable.zip`.
+2. Extract the archive to any folder and launch `BitMaker.exe`.
+   > No Python, Git, or third-party package installation is required in this mode.
+
+---
+
+### Option B: Running from Source (Git / Python)
+
+#### Requirements:
+- **Python**: 3.10 – 3.12 (Recommended: **[Python 3.12 for Windows](https://www.python.org/downloads/)**).
+  > ⚠️ **Important during Python installation**: Check the box **"Add python.exe to PATH"** on the first setup screen.
+- **Git**: To clone the repository. If not installed, download: **[Git for Windows](https://git-scm.com/download/win)**.
+- **FFmpeg**: Bundled inside `bin/` or available in system `PATH`.
+
+#### 1. Clone the Repository
+Open a terminal (PowerShell / Command Prompt) and run:
 ```bash
 git clone https://github.com/Xamirp/DaVinci-tools.git
 cd DaVinci-tools
 ```
 
-#### 2. Инициализация окружения
-Запустите скрипт автоматической настройки:
+#### 2. Initialize Environment
+Run the automatic setup script:
 ```bat
 setup_env.bat
 ```
-Или вручную:
+Or set up manually:
 ```bash
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 ```
 
-### 3. Запуск
+### 3. Launching
 
-#### Графический интерфейс (GUI):
-Дважды кликните по:
+#### Graphical User Interface (GUI):
+Double-click:
 ```bat
 run_gui.bat
 ```
-или выполните в консоли:
+Or run via console:
 ```bash
 .venv\Scripts\python main.py
 ```
 
-#### Консольная утилита (CLI):
+#### Command Line Interface (CLI):
 ```bat
 run_cli.bat
 ```
-или:
+Or:
 ```bash
 .venv\Scripts\python beat_marker.py --timeline intro --track-index 2 --frequency 0
 ```
 
 ---
 
-## ⌨️ Горячие клавиши в GUI
+## ⌨️ Keyboard Shortcuts
 
-| Клавиша | Действие |
+| Shortcut | Action |
 |---|---|
-| `Space` | Воспроизведение / Пауза аудиоплеера |
-| `M` | Поставить маркер в текущей позиции плейхеда |
-| `Delete` / `Backspace` | Удалить выбранный маркер |
-| `S` | Включить / выключить магнитную привязку (Snap) |
-| `Ctrl + Z` | Отменить последнее действие (Undo) |
-| `Ctrl + Y` / `Ctrl + Shift + Z` | Повторить отмененное действие (Redo) |
+| `Space` | Play / Pause Audio Player |
+| `M` | Add Marker at Playhead Position |
+| `Delete` / `Backspace` | Delete Selected Marker |
+| `S` | Toggle Magnetic Snap |
+| `Ctrl + Z` | Undo Last Action |
+| `Ctrl + Y` / `Ctrl + Shift + Z` | Redo Action |
+| `F5` | Refresh DaVinci Connection |
 
 ---
 
-## 📁 Структура проекта
+## 📁 Project Structure
 
 ```
 BitMaker/
-├── bin/                   # Локализованные исполняемые файлы FFmpeg
+├── bin/                   # Bundled FFmpeg binaries
 │   ├── .gitkeep
 │   ├── ffmpeg.exe
 │   └── ffprobe.exe
-├── gui/                   # Модули интерфейса (tkinter / ttk)
-│   ├── audio_player.py    # Потоковый плеер (sounddevice)
-│   ├── command_manager.py # Паттерн Command & Undo/Redo
-│   ├── dialogs.py         # Диалоги настроек, логов и окно прогресса
-│   ├── panels.py          # Модульные панели интерфейса
-│   ├── theme.py           # Темная тема DaVinci Resolve Studio
-│   └── timeline_panel.py  # Интерактивный Waveform Canvas
-├── beat_marker.py         # Ядро детекции битов, ffmpeg и DaVinci API
-├── beat_marker_gui.py     # Главное окно GUI приложения
-├── main.py                # Точка входа
-├── requirements.txt       # Зависимости Python
-├── run_gui.bat            # Скрипт запуска GUI
-├── run_cli.bat            # Скрипт запуска CLI
-├── setup_env.bat          # Скрипт быстрой установки окружения
+├── gui/                   # GUI modules (tkinter / ttk)
+│   ├── audio_player.py    # Streaming audio player (sounddevice)
+│   ├── command_manager.py # Command pattern & Undo/Redo stack
+│   ├── dialogs.py         # Settings, logs, and progress dialogs
+│   ├── i18n.py            # Multi-language translation system (EN / UK / RU)
+│   ├── panels.py          # Modular UI panels
+│   ├── theme.py           # DaVinci Resolve Studio dark theme
+│   └── timeline_panel.py  # Interactive Waveform Canvas
+├── beat_marker.py         # AI beat detection core, FFmpeg & DaVinci API
+├── beat_marker_gui.py     # Main GUI application window
+├── edl_exporter.py        # CMX 3600 EDL marker exporter
+├── fcp_xml_exporter.py    # Final Cut Pro 7 XML exporter
+├── main.py                # Main entrypoint
+├── requirements.txt       # Python dependencies
+├── run_gui.bat            # GUI launcher script
+├── run_cli.bat            # CLI launcher script
+├── setup_env.bat          # Automatic environment setup script
 ├── LICENSE                # Apache 2.0 License
-└── README.md              # Документация проекта
+├── README.md              # English documentation (default)
+├── README.uk.md           # Ukrainian documentation
+└── README.ru.md           # Russian documentation
 ```
 
 ---
 
-## 🤝 О проекте и разработка
+## 🤝 Credits & Acknowledgements
 
-Проект спроектирован и разработан с использованием **[Google AI Studio](https://aistudio.google.com/)** & **Google Gemini**.
+Designed and developed with the assistance of **[Google AI Studio](https://aistudio.google.com/)** & **Google Gemini**.
 
 ---
 
-## 📄 Лицензия
+## 📄 License
 
-Проект распространяется под лицензией [Apache License 2.0](LICENSE).
-
+This project is licensed under the [Apache License 2.0](LICENSE).

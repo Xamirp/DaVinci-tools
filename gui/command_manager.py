@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 command_manager.py — Реализация паттерна Command и стека Undo/Redo для операций разметки.
+Локализовано через i18n (EN / UK / RU).
 """
 
 import sys
@@ -9,11 +10,12 @@ from pathlib import Path
 # Импорт функций работы с маркерами
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import beat_marker as bm
+from gui.i18n import tr
 
 
 class Command:
     """Базовый класс для команд с поддержкой отмены (Undo)."""
-    def __init__(self, description="Операция"):
+    def __init__(self, description="Operation"):
         self.description = description
 
     def execute(self):
@@ -26,7 +28,7 @@ class Command:
 class PlaceMarkersCommand(Command):
     """Команда расстановки маркеров на таймлайн или клип в DaVinci Resolve."""
     def __init__(self, proj, timeline_name, track_index, strong_beats, color="Red", target="clip", log_fn=print, progress_fn=None):
-        super().__init__(f"Разметка маркеров ({len(strong_beats)} шт, {color})")
+        super().__init__(tr("cmd_place_markers", color=color, target=target))
         self.proj = proj
         self.timeline_name = timeline_name
         self.track_index = track_index
@@ -52,21 +54,21 @@ class PlaceMarkersCommand(Command):
         return res
 
     def undo(self):
-        self.log_fn(f"[Undo] Отмена разметки: удаление маркеров цвета '{self.color}'...")
+        self.log_fn(tr("log_undo", desc=f"delete {self.color} markers"))
         tl = bm.set_current_timeline(self.proj, self.timeline_name) if self.timeline_name else self.proj.GetCurrentTimeline()
         if not tl:
             return 0
         items = tl.GetItemListInTrack("audio", self.track_index) or []
         clip_items = items if (items and self.target == "clip") else None
         deleted = bm.delete_markers(tl, color=self.color, timeline_items=clip_items)
-        self.log_fn(f"[Undo] Удалено {deleted} маркеров.")
+        self.log_fn(tr("log_markers_cleared", count=deleted, target=self.target, color=self.color))
         return deleted
 
 
 class ClearMarkersCommand(Command):
     """Команда очистки маркеров."""
     def __init__(self, proj, timeline_name, track_index, color="All", target="clip", log_fn=print):
-        super().__init__(f"Очистка маркеров ({target})")
+        super().__init__(tr("cmd_clear_markers", target=target))
         self.proj = proj
         self.timeline_name = timeline_name
         self.track_index = track_index
@@ -86,9 +88,9 @@ class ClearMarkersCommand(Command):
         self.deleted_count = bm.delete_markers(tl, color=self.color, timeline_items=clip_items)
         
         # Информативный лог
-        target_desc = f"клипах трека A{self.track_index}" if self.target == "clip" else "шкале таймлайна"
-        color_desc = "все цвета" if self.color.lower() == "all" else f"цвет '{self.color}'"
-        self.log_fn(f"[Очистка] Удалено {self.deleted_count} маркеров на {target_desc} ({color_desc}).")
+        target_desc = tr("target_desc_clip", track=self.track_index) if self.target == "clip" else tr("target_desc_timeline")
+        color_desc = "all" if self.color.lower() == "all" else self.color
+        self.log_fn(tr("log_markers_cleared", count=self.deleted_count, target=target_desc, color=color_desc))
         
         # Проверяем, остались ли другие маркеры
         remaining_tl = tl.GetMarkers() or {}
@@ -98,19 +100,19 @@ class ClearMarkersCommand(Command):
                 c = m.get("color", "Unknown")
                 rem_colors[c] = rem_colors.get(c, 0) + 1
             rem_str = ", ".join(f"{c}: {cnt}" for c, cnt in rem_colors.items())
-            self.log_fn(f"[Инфо] На шкале таймлайна находится маркеров: {len(remaining_tl)} ({rem_str})")
+            self.log_fn(tr("log_markers_remaining", count=len(remaining_tl), colors=rem_str))
             
         return self.deleted_count
 
     def undo(self):
-        self.log_fn("[Undo] Восстановление очищенных маркеров пока не поддерживается.")
+        self.log_fn(tr("log_undo", desc="Undo clear not supported"))
         return 0
 
 
 class MoveTimelineMarkerCommand(Command):
     """Команда перемещения маркера на таймлайне."""
     def __init__(self, timeline, marker_id, old_time, new_time, log_fn=None):
-        super().__init__(f"Перемещение маркера #{marker_id} ({old_time:.2f}с -> {new_time:.2f}с)")
+        super().__init__(tr("cmd_move_marker", id=marker_id, old_t=old_time, new_t=new_time))
         self.timeline = timeline
         self.marker_id = marker_id
         self.old_time = old_time
@@ -120,18 +122,19 @@ class MoveTimelineMarkerCommand(Command):
     def execute(self):
         self.timeline._apply_marker_move(self.marker_id, self.new_time)
         if self.log_fn:
-            self.log_fn(f"[Таймлайн] Перемещен маркер #{self.marker_id}: {self.old_time:.2f}с -> {self.new_time:.2f}с")
+            self.log_fn(f"[Timeline] Marker #{self.marker_id} moved: {self.old_time:.2f}s -> {self.new_time:.2f}s")
 
     def undo(self):
         self.timeline._apply_marker_move(self.marker_id, self.old_time)
         if self.log_fn:
-            self.log_fn(f"[Undo] Возврат маркера #{self.marker_id}: {self.new_time:.2f}с -> {self.old_time:.2f}с")
+            self.log_fn(tr("log_undo", desc=f"Marker #{self.marker_id} restored to {self.old_time:.2f}s"))
 
 
 class AddTimelineMarkerCommand(Command):
     """Команда добавления маркера на таймлайне."""
     def __init__(self, timeline, marker_data, log_fn=None):
-        super().__init__(f"Добавление маркера на {marker_data.get('time', 0):.2f}с")
+        t = marker_data.get("time", 0)
+        super().__init__(tr("cmd_add_marker", time=t))
         self.timeline = timeline
         self.marker_data = dict(marker_data)
         self.marker_id = marker_data.get("id")
@@ -140,32 +143,34 @@ class AddTimelineMarkerCommand(Command):
     def execute(self):
         self.timeline._apply_marker_add(self.marker_data)
         if self.log_fn:
-            self.log_fn(f"[Таймлайн] Добавлен маркер на {self.marker_data.get('time', 0):.2f}с")
+            self.log_fn(f"[Timeline] Marker added at {self.marker_data.get('time', 0):.2f}s")
 
     def undo(self):
         self.timeline._apply_marker_delete(self.marker_id)
         if self.log_fn:
-            self.log_fn(f"[Undo] Удален добавленный маркер #{self.marker_id}")
+            self.log_fn(tr("log_undo", desc=f"Deleted marker #{self.marker_id}"))
 
 
 class DeleteTimelineMarkerCommand(Command):
     """Команда удаления маркера на таймлайне."""
     def __init__(self, timeline, marker_data, log_fn=None):
-        super().__init__(f"Удаление маркера #{marker_data.get('id')} ({marker_data.get('time', 0):.2f}с)")
+        t = marker_data.get("time", 0)
+        m_id = marker_data.get("id")
+        super().__init__(tr("cmd_delete_marker", id=m_id, time=t))
         self.timeline = timeline
         self.marker_data = dict(marker_data)
-        self.marker_id = marker_data.get("id")
+        self.marker_id = m_id
         self.log_fn = log_fn
 
     def execute(self):
         self.timeline._apply_marker_delete(self.marker_id)
         if self.log_fn:
-            self.log_fn(f"[Таймлайн] Удален маркер #{self.marker_id}")
+            self.log_fn(f"[Timeline] Marker #{self.marker_id} deleted")
 
     def undo(self):
         self.timeline._apply_marker_add(self.marker_data)
         if self.log_fn:
-            self.log_fn(f"[Undo] Восстановлен маркер #{self.marker_id}")
+            self.log_fn(tr("log_undo", desc=f"Marker #{self.marker_id} restored"))
 
 
 class CommandManager:
