@@ -17,17 +17,22 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-SCRIPT_DIR = Path(__file__).parent.resolve()
+if getattr(sys, "frozen", False):
+    SCRIPT_DIR = Path(sys.executable).parent.resolve()
+else:
+    SCRIPT_DIR = Path(__file__).parent.resolve()
+
 sys.path.insert(0, str(SCRIPT_DIR))
 
-# Self-relaunch in project .venv if needed
-_VENV_PYTHON = SCRIPT_DIR / ".venv" / "Scripts" / "python.exe"
-if not _VENV_PYTHON.exists():
-    _VENV_PYTHON = SCRIPT_DIR / ".venv" / "bin" / "python"
+# Self-relaunch in project .venv if needed (only for script mode)
+if not getattr(sys, "frozen", False):
+    _VENV_PYTHON = SCRIPT_DIR / ".venv" / "Scripts" / "python.exe"
+    if not _VENV_PYTHON.exists():
+        _VENV_PYTHON = SCRIPT_DIR / ".venv" / "bin" / "python"
 
-if __name__ == "__main__" and _VENV_PYTHON.exists() and sys.executable.lower() != str(_VENV_PYTHON).lower():
-    subprocess.check_call([str(_VENV_PYTHON)] + sys.argv)
-    raise SystemExit(0)
+    if __name__ == "__main__" and _VENV_PYTHON.exists() and sys.executable.lower() != str(_VENV_PYTHON).lower():
+        subprocess.check_call([str(_VENV_PYTHON)] + sys.argv)
+        raise SystemExit(0)
 
 import beat_marker as bm
 from gui.theme import apply_theme, BG_DARK, TEXT_MAIN
